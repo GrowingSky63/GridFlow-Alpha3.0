@@ -2,13 +2,15 @@ from os import path, remove
 from requests import get
 from zipfile import ZipFile
 import shutil
+from tqdm import tqdm
 
 class BDGDDownloader:
-    def __init__(self, bdgd_id: str, bdgd_name: str, output_folder: str, extract: bool = False):
+    def __init__(self, bdgd_id: str, bdgd_name: str, output_folder: str, extract: bool = False, verbose: bool = True):
         self.bdgd_id = bdgd_id
         self.bdgd_name = bdgd_name
         self.output_folder = output_folder
         self.extract = extract
+        self.verbose = verbose
         self.zip_path = None
         self.bdgd_path = None
 
@@ -28,10 +30,24 @@ class BDGDDownloader:
             response.raise_for_status()
             zip_path = path.join(self.output_folder, f"{self.bdgd_name}.zip")
             
+            # Obtém o tamanho total do arquivo do cabeçalho Content-Length
+            total_size = int(response.headers.get('content-length', 0))
+            
             with open(zip_path, "wb") as f:
-                f.write(response.content)
-                return zip_path
-        return zip_path
+                if self.verbose and total_size > 0:
+                    # Cria barra de progresso com tqdm
+                    with tqdm(total=total_size, unit='B', unit_scale=True, desc=f"Downloading {self.bdgd_name}") as pbar:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                pbar.update(len(chunk))
+                else:
+                    # Download sem barra de progresso
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+            
+            return zip_path
     
     def extract_zip(self) -> str:
         """Extrai o arquivo ZIP e retorna o caminho do GDB extraído"""

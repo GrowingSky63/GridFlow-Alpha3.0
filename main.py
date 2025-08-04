@@ -5,6 +5,7 @@ from geoalchemy2 import Geometry
 import geopandas as gpd
 from datetime import datetime
 from tempfile import TemporaryDirectory
+from tqdm import tqdm
 import os, dotenv, json
 
 with open('gdbs.json') as file:
@@ -91,19 +92,15 @@ def save_gdf_to_db(gdf: gpd.GeoDataFrame):
         except IntegrityError as e:
             # Pula registros que violem unique constraints
             skipped_count += 1
-            print(f"Registro duplicado pulado: {row['bdgd_name']} - {row['year_ref']} (bdgd: {row['cod_id']})")
             continue
         except Exception as e:
             # Para outros erros, re-raise a exceção
-            print(f"Erro inesperado: {e}")
             raise
     
 if __name__ == '__main__':
     ensure_table_exists()
-    for bdgd_name, bdgd_id in gdbs.items():
-        print(bdgd_name)
+    for bdgd_name, bdgd_id in tqdm(gdbs.items(), desc='Extracting regions'):
         if region_already_exists(bdgd_id):
-            print(f"Região já coletada")
             continue
         gdf = get_region(bdgd_name, bdgd_id)
         save_gdf_to_db(gdf)
