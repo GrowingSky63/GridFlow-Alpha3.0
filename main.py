@@ -1,15 +1,13 @@
-from bdgd_downloader import BDGDDownloader
+from bdgd_downloader import BDGDDownloader, BDGDListDownloader
 from sqlalchemy import Column, DateTime, Integer, String, UniqueConstraint, create_engine, URL, Table, MetaData
 from sqlalchemy.exc import IntegrityError
 from geoalchemy2 import Geometry
 import geopandas as gpd
+import pandas as pd
 from datetime import datetime
 from tempfile import TemporaryDirectory
 from tqdm import tqdm
-import os, dotenv, json
-
-with open('gdbs.json') as file:
-    gdbs = json.loads(file.read())
+import os, dotenv
 
 VERBOSE = True
 
@@ -46,6 +44,19 @@ region_table = Table(
     UniqueConstraint("cod_id", "year_ref")
 )
 
+def get_bdgd_list_df(year: int | None = None):
+    with TemporaryDirectory(prefix='gridflow-bdgd-list-') as temp_folder:
+        with BDGDListDownloader(temp_folder) as f:
+            df = pd.read_csv(f)
+            df = df[df['type'] == 'File Geodatabase']
+            df = df[df['title'] != "DUP"]
+            df['year'] = df['title'].apply(lambda s: int(s[-10:-6]))
+            df = df[['id', 'title', 'year']]
+            df = df.sort_values(['year', 'title'], ascending=[False, True])
+
+            df = df[df['year'] == df['year'].iloc[0]] if not year else df[df['year'] == year]
+            return df[['id', 'title']]
+
 def ensure_table_exists():
     with engine.begin() as conn:
         metadata.create_all(conn)
@@ -71,13 +82,6 @@ def get_region(bdgd_name, bdgd_id):
             return gdf
 
 def save_gdf_to_db(gdf: gpd.GeoDataFrame):
-    """
-    Salva um GeoDataFrame no banco de dados PostgreSQL.
-    Pula registros que violem unique constraints.
-    """
-    skipped_count = 0
-    inserted_count = 0
-    
     for _, row in gdf.iterrows():
         try:
             with engine.begin() as conn:
@@ -90,19 +94,23 @@ def save_gdf_to_db(gdf: gpd.GeoDataFrame):
                     year_ref=row['year_ref']
                 )
                 conn.execute(stmt)
-                inserted_count += 1
         except IntegrityError as e:
-            # Pula registros que violem unique constraints
-            skipped_count += 1
             continue
         except Exception as e:
-            # Para outros erros, re-raise a exceção
             raise
     
 if __name__ == '__main__':
     ensure_table_exists()
 
-    for bdgd_name, bdgd_id in tqdm(gdbs.items(), desc='Extracting regions') if VERBOSE else gdbs.items():
+    # Obter lista de BDGDs do ano mais recente
+    bdgd_df = get_bdgd_list_df()
+    
+    iterator = tqdm(bdgd_df.iterrows(), total=len(bdgd_df), desc='Extracting regions') if VERBOSE else bdgd_df.iterrows()
+    
+    for _, row in iterator:
+        bdgd_name = row['title']
+        bdgd_id = row['id']
+        
         if region_already_exists(bdgd_id):
             continue
         gdf = get_region(bdgd_name, bdgd_id)

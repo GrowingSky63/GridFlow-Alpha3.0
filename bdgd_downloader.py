@@ -1,4 +1,5 @@
 from os import path, remove
+from tempfile import TemporaryDirectory
 from requests import get
 from zipfile import ZipFile
 import shutil
@@ -72,3 +73,49 @@ class BDGDDownloader:
                 shutil.rmtree(self.bdgd_path)
             else:
                 remove(self.bdgd_path)
+
+class BDGDListDownloader:
+    def __init__(self, output_folder: str, verbose: bool = True):
+        self.output_folder = output_folder
+        self.verbose = verbose
+        self.bdgd_list_path = None
+
+    def __enter__(self) -> str:
+        self.bdgd_list_path = self.download()
+        return self.bdgd_list_path
+        
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._cleanup()
+
+    def download(self) -> str:
+        
+        with get("https://hub.arcgis.com/api/feed/all/csv?target=dadosabertos-aneel.opendata.arcgis.com", stream=True) as response:
+            response.raise_for_status()
+            bdgd_list_path = path.join(self.output_folder, "bdgd_list.csv")
+            
+            # Obtém o tamanho total do arquivo do cabeçalho Content-Length
+            total_size = int(response.headers.get('content-length', 0))
+            
+            with open(bdgd_list_path, "wb") as f:
+                if self.verbose and total_size > 0:
+                    # Cria barra de progresso com tqdm
+                    with tqdm(total=total_size, unit='B', unit_scale=True, desc=f"Downloading bdgd_list") as pbar:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                pbar.update(len(chunk))
+                else:
+                    # Download sem barra de progresso
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+
+            return bdgd_list_path
+
+    def _cleanup(self):
+        """Limpa arquivos temporários"""
+        if self.bdgd_list_path and path.exists(self.bdgd_list_path):
+            if path.isdir(self.bdgd_list_path):
+                shutil.rmtree(self.bdgd_list_path)
+            else:
+                remove(self.bdgd_list_path)
