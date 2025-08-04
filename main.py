@@ -11,6 +11,8 @@ import os, dotenv, json
 with open('gdbs.json') as file:
     gdbs = json.loads(file.read())
 
+VERBOSE = True
+
 dotenv.load_dotenv(dotenv.find_dotenv())
 drivername = 'postgresql'
 username = 'gridflow'
@@ -55,7 +57,7 @@ def region_already_exists(bdgd_id):
 
 def get_region(bdgd_name, bdgd_id):
     with TemporaryDirectory(prefix='gridflow-bdgd-') as temp_folder:
-        with BDGDDownloader(bdgd_id, bdgd_name, temp_folder, True) as bdgd_file:
+        with BDGDDownloader(bdgd_id, bdgd_name, temp_folder, True, VERBOSE) as bdgd_file:
             gdf = gpd.read_file(bdgd_file, layer='ARAT')
             gdf = gdf.rename(columns={'COD_ID': 'cod_id', 'DIST': 'dist'})
             gdf = gdf[['cod_id', 'dist', 'geometry']]
@@ -99,7 +101,8 @@ def save_gdf_to_db(gdf: gpd.GeoDataFrame):
     
 if __name__ == '__main__':
     ensure_table_exists()
-    for bdgd_name, bdgd_id in tqdm(gdbs.items(), desc='Extracting regions'):
+
+    for bdgd_name, bdgd_id in tqdm(gdbs.items(), desc='Extracting regions') if VERBOSE else gdbs.items():
         if region_already_exists(bdgd_id):
             continue
         gdf = get_region(bdgd_name, bdgd_id)
