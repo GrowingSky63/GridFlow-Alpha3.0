@@ -106,7 +106,7 @@ if __name__ == '__main__':
     ensure_table_exists()
 
     # Obter lista de BDGDs do ano mais recente
-    bdgd_df = get_bdgd_list_df()
+    bdgd_df = get_bdgd_list_df(2023)
     
     iterator = tqdm(bdgd_df.iterrows(), total=len(bdgd_df), desc='Extracting regions') if VERBOSE else bdgd_df.iterrows()
     
