@@ -108,9 +108,7 @@ if __name__ == '__main__':
     # Obter lista de BDGDs do ano mais recente
     bdgd_df = get_bdgd_list_df(2023)
     
-    iterator = tqdm(bdgd_df.iterrows(), total=len(bdgd_df), desc='Extracting regions') if VERBOSE else bdgd_df.iterrows()
-    
-    for _, row in iterator:
+    for _, row in tqdm(bdgd_df.iterrows(), total=len(bdgd_df), desc='Extracting regions') if VERBOSE else bdgd_df.iterrows():
         bdgd_name = row['title']
         bdgd_id = row['id']
         
