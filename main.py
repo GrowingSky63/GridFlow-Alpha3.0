@@ -101,71 +101,6 @@ def save_gdf_to_db(gdf: gpd.GeoDataFrame):
             continue
         except Exception as e:
             raise
-
-def process_single_bdgd(row_data):
-    """
-    Processa um único BDGD em um processo separado
-    """
-    bdgd_name = row_data['title']
-    bdgd_id = row_data['id']
-    
-    try:
-        # Verificar se já existe (conexão local para cada processo)
-        if region_already_exists(bdgd_id):
-            return {'status': 'skipped', 'bdgd_name': bdgd_name, 'bdgd_id': bdgd_id}
-        
-        # Processar o BDGD
-        gdf = get_region(bdgd_name, bdgd_id)
-        save_gdf_to_db(gdf)
-        
-        return {'status': 'success', 'bdgd_name': bdgd_name, 'bdgd_id': bdgd_id}
-        
-    except Exception as e:
-        return {'status': 'error', 'bdgd_name': bdgd_name, 'bdgd_id': bdgd_id, 'error': str(e)}
-
-def process_bdgds_parallel(bdgd_df, max_workers=None):
-    """
-    Processa BDGDs em paralelo usando multiprocessing
-    """
-    if max_workers is None:
-        max_workers = mp.cpu_count()
-    
-    # Converter DataFrame em lista de dicts para passar para os processos
-    bdgd_list = bdgd_df.to_dict('records')
-    
-    print(f"Processando {len(bdgd_list)} BDGDs usando {max_workers} processadores")
-    
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Usar tqdm para mostrar progresso
-        if VERBOSE:
-            results = list(tqdm(
-                executor.map(process_single_bdgd, bdgd_list),
-                total=len(bdgd_list),
-                desc='Processing BDGDs'
-            ))
-        else:
-            results = list(executor.map(process_single_bdgd, bdgd_list))
-    
-    return results
-
-def print_processing_summary(results):
-    """
-    Imprime resumo do processamento
-    """
-    successful = [r for r in results if r['status'] == 'success']
-    skipped = [r for r in results if r['status'] == 'skipped']
-    failed = [r for r in results if r['status'] == 'error']
-    
-    print(f"\n=== Resumo do Processamento ===")
-    print(f"Total processados: {len(results)}")
-    print(f"Sucessos: {len(successful)}")
-    print(f"Ignorados (já existiam): {len(skipped)}")
-    print(f"Erros: {len(failed)}")
-    
-    if failed:
-        print(f"\nBDGDs com erro:")
-        for result in failed:
-            print(f"- {result['bdgd_name']}: {result['error']}")
     
 if __name__ == '__main__':
     ensure_table_exists()
@@ -173,23 +108,13 @@ if __name__ == '__main__':
     # Obter lista de BDGDs do ano mais recente
     bdgd_df = get_bdgd_list_df()
     
-    # Opções de processamento
-    USE_PARALLEL = True  # Altere para False para usar processamento sequencial
-    MAX_WORKERS = 4      # Número de processadores a usar (None = usar todos)
+    iterator = tqdm(bdgd_df.iterrows(), total=len(bdgd_df), desc='Extracting regions') if VERBOSE else bdgd_df.iterrows()
     
-    if USE_PARALLEL:
-        # Processamento paralelo
-        results = process_bdgds_parallel(bdgd_df, MAX_WORKERS)
-        print_processing_summary(results)
-    else:
-        # Processamento sequencial (código original)
-        iterator = tqdm(bdgd_df.iterrows(), total=len(bdgd_df), desc='Extracting regions') if VERBOSE else bdgd_df.iterrows()
+    for _, row in iterator:
+        bdgd_name = row['title']
+        bdgd_id = row['id']
         
-        for _, row in iterator:
-            bdgd_name = row['title']
-            bdgd_id = row['id']
-            
-            if region_already_exists(bdgd_id):
-                continue
-            gdf = get_region(bdgd_name, bdgd_id)
-            save_gdf_to_db(gdf)
+        if region_already_exists(bdgd_id):
+            continue
+        gdf = get_region(bdgd_name, bdgd_id)
+        save_gdf_to_db(gdf)
