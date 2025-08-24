@@ -229,6 +229,7 @@ class BDGDManager:
                 layers = self.layers_of_interest
                 if VERBOSE:
                     layers = tqdm(layers)
+                first = True
                 for layer in layers:
                     layer_gdf = gpd.read_file(bdgd_file, layer=layer)
                     chunk_size = 10000
@@ -246,9 +247,11 @@ class BDGDManager:
                             to_db(
                                 name=layer,
                                 con=conn,
-                                schema=schema_name
+                                schema=schema_name,
+                                if_exists='replace' if first else 'append'
                             )
                             conn.commit()
+                            first = False
 
     # Leitura dos GDBs usando GeoDataFrames
     def get_all_search_layers_to_gdf(self, bdgd_full_name: str, bdgd_id: str) -> dict[Table, gpd.GeoDataFrame] | None:
