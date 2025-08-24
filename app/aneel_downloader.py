@@ -1,5 +1,4 @@
 from os import path, remove
-from tempfile import TemporaryDirectory
 from requests import get
 from zipfile import ZipFile
 import shutil
@@ -105,10 +104,7 @@ class BDGDListDownloader:
                                 f.write(chunk)
                                 pbar.update(len(chunk))
                 else:
-                    # Download sem barra de progresso
-                    for chunk in response.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
+                    f.write(response.content)
 
             return bdgd_list_path
 
