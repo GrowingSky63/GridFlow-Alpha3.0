@@ -32,20 +32,23 @@ class BDGDDownloader:
             
             # Obtém o tamanho total do arquivo do cabeçalho Content-Length
             total_size = int(response.headers.get('content-length', 0))
-            
+            chunk_size = 8192
             with open(zip_path, "wb") as f:
-                if self.verbose and total_size > 0:
-                    # Cria barra de progresso com tqdm
-                    with tqdm(total=total_size, unit='B', unit_scale=True, desc=f"Downloading {self.bdgd_name}") as pbar:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            if chunk:
-                                f.write(chunk)
-                                pbar.update(len(chunk))
-                else:
-                    # Download sem barra de progresso
-                    for chunk in response.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
+                iterator = response.iter_content(chunk_size=chunk_size)
+                if self.verbose:
+                    iterator = tqdm(
+                        iterator,
+                        total=total_size,
+                        unit='B',
+                        unit_scale=True,
+                        desc=f"Baixando {self.bdgd_name}",
+                        leave=False
+                    )
+                for chunk in iterator:
+                    if chunk:
+                        f.write(chunk)
+                        if self.verbose:
+                            iterator.update(chunk_size) # type: ignore
             
             return zip_path
     
@@ -55,7 +58,7 @@ class BDGDDownloader:
             raise FileNotFoundError(f"ZIP file {self.zip_path} does not exist.")
         
         with ZipFile(self.zip_path, "r") as zip_ref:
-            # Pega o primeiro diretório (assumindo que é o GDB)
+            # TODO Implementar tqdm se verboso
             files = zip_ref.infolist()
             gdb_file = files[0].filename.split('/')[0]
             extract_path = path.join(self.output_folder, gdb_file)
