@@ -186,5 +186,5 @@ class BDGDManager:
 if __name__ == '__main__':
     bdgd_manager = BDGDManager(verbose=True)
 
-    poi = -53.7556686, -31.4540597
+    poi = -49.72071732124833, -25.555419806716376
     bdgd_manager.donwload_and_save_entire_bdgd_by_poi(poi)
