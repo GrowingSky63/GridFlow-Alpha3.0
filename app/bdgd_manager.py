@@ -1,4 +1,3 @@
-from psycopg2 import IntegrityError
 from bdgd_interface import BDGDDBInterface
 from bdgd_downloader import BDGDDownloader, BDGDListDownloader
 import geopandas as gpd
@@ -62,10 +61,8 @@ class BDGDManager:
         bdgd_search_gdfs = self.get_all_search_layers_to_gdf(bdgd_full_name, bdgd_id)
         if not bdgd_search_gdfs:
             return
-        try:
-            self.interface.save_bdgd_search_layers_to_db(bdgd_search_gdfs)
-        except IntegrityError as e:
-            print(f'\033[31mBDGD: {bdgd_full_name}\nErro: {e}\033[m')
+        print(f'\033[31m{bdgd_full_name}\033[m')
+        self.interface.save_bdgd_search_layers_to_db(bdgd_search_gdfs)
 
     def download_and_save_all_bdgd_search_layers(self, year: int):
         filtered_by_year = self.bdgd_list_df.loc[self.bdgd_list_df['bdgd_date'].dt.year == year]
