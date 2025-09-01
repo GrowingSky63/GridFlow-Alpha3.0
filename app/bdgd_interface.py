@@ -85,8 +85,8 @@ class BDGDDBInterface:
                     values = row.to_dict()
                 with self.engine.begin() as conn:
                     conn.execute(layer_table.insert().values(values))
-            except IntegrityError:
-                continue
+            except IntegrityError as e:
+                raise e
 
     def save_generic_gdf_to_db(self, gdf: GeoDataFrame | DataFrame, layer_name: str, schema_name: str, first: bool):
         to_db = gdf.to_sql
