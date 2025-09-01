@@ -61,7 +61,7 @@ class BDGDManager:
         bdgd_search_gdfs = self.get_all_search_layers_to_gdf(bdgd_full_name, bdgd_id)
         if not bdgd_search_gdfs:
             return
-        print(f'\033[31m{bdgd_full_name}\033[m')
+        print(f'\033[31m\n{bdgd_full_name}\033[m')
         self.interface.save_bdgd_search_layers_to_db(bdgd_search_gdfs)
 
     def download_and_save_all_bdgd_search_layers(self, year: int):
