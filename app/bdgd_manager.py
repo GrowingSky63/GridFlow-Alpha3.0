@@ -169,13 +169,17 @@ class BDGDManager:
     def normalize_gdf_trhv(self, raw_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         """
         Método para normalizar o gdf da layer UNTRAT de um BDGD. Este gdf alimentará a tabela trhv do DB
+        Remove linhas com substation vazio para evitar violação de chave estrangeira.
         """
         trhv_gdf = raw_gdf.rename(columns={
             'COD_ID': 'cod_id',
             'SUB': 'substation',
+            'DIST': 'dist',
             'POT_NOM': 'power'
         })
-        return trhv_gdf[['cod_id', 'substation', 'power', 'geometry']]
+        # Remove linhas com substation vazio ou nulo
+        trhv_gdf = trhv_gdf[trhv_gdf['substation'].notnull() & (trhv_gdf['substation'] != '')].copy()
+        return trhv_gdf[['cod_id', 'substation', 'dist', 'power', 'geometry']]
 
     # Utils
     def get_name_and_date_from_bdgd_full_name(self, bdgd_full_name: str) -> tuple[str, datetime]:

@@ -1,4 +1,3 @@
-from sqlite3 import IntegrityError
 from typing import Any, Literal, Sequence
 from geoalchemy2 import Geometry, WKTElement
 from geoalchemy2.functions import ST_Contains, ST_Area
@@ -6,6 +5,7 @@ from geopandas import GeoDataFrame
 from pandas import DataFrame
 from sqlalchemy import Column, DateTime, Engine, Float, ForeignKeyConstraint, Integer, MetaData, Row, String, Table, UniqueConstraint, create_engine, func, inspect, select, text
 from sqlalchemy.schema import CreateSchema
+from sqlalchemy.exc import IntegrityError
 
 from utils import make_url_by_environment
 
@@ -61,7 +61,7 @@ class BDGDDBInterface:
             Column('substation', String),
             Column('dist', String),
             Column('power', Float),
-            UniqueConstraint('cod_id', 'substation'),
+            UniqueConstraint('cod_id', 'substation', 'dist'),
             ForeignKeyConstraint(['substation', 'dist'], ['search.substation.cod_id', 'search.substation.dist']),
             schema = 'search'
         )
@@ -77,16 +77,17 @@ class BDGDDBInterface:
     def save_search_gdf_to_db(self, layer_name: str, gdf: GeoDataFrame):
         layer_table = self.metadata.tables[f'search.{layer_name}']
         for _, row in gdf.iterrows():
+            if 'geometry' in row:
+                values = row.drop('geometry').to_dict()
+                values['geometry'] = WKTElement(row.geometry.wkt, srid=4326)
+            else:
+                values = row.to_dict()
             try:
-                if 'geometry' in row:
-                    values = row.drop('geometry').to_dict()
-                    values['geometry'] = WKTElement(row.geometry.wkt, srid=4326)
-                else:
-                    values = row.to_dict()
                 with self.engine.begin() as conn:
                     conn.execute(layer_table.insert().values(values))
             except IntegrityError as e:
-                raise e
+                if 'ForeignKeyViolation' in e.args[0]:
+                    pass
 
     def save_generic_gdf_to_db(self, gdf: GeoDataFrame | DataFrame, layer_name: str, schema_name: str, first: bool):
         to_db = gdf.to_sql
