@@ -78,12 +78,12 @@ class BDGDManager:
             self.donwload_and_save_bdgd_search_layers(row['title'], row['id'])
 
     def donwload_and_save_entire_bdgd_by_poi(self, poi: tuple[float, float]):
-        region_of_interest = self.interface.get_region_by_poi(poi)
+        region_of_interest = self.interface.get_region_by_poi(poi, mapped = False)
         
         if not region_of_interest:
             return
 
-        self.interface.create_bdgd_schema(region_of_interest)
+        self.interface.create_bdgd_schema(region_of_interest) # type: ignore
         
         schema_name = f'{region_of_interest.bdgd_name}_{region_of_interest.bdgd_date.year}'
 
