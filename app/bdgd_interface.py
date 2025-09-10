@@ -138,14 +138,7 @@ class BDGDDBInterface:
             return count if count is not None else 0
         
     def get_all_region(self, limit: int | None = None, offset: int | None = None, mapped: bool = True) -> Sequence[RowMapping]:
-        return self._execute_select_many_regions_stmt(mapped=mapped) # type: ignore
-        with self.engine.begin() as conn:
-            stmt = (
-                select(self.region_table)
-                .offset(offset)
-                .limit(limit)
-            )
-            return conn.execute(stmt).mappings().all()
+        return self._execute_select_many_regions_stmt(limit=limit, offset=offset, mapped=mapped) # type: ignore
         
     def get_region_by_id(self, id: str, mapped: bool = True) -> RowMapping | None:
         whereclause = self.region_table.c.bdgd_id == id
