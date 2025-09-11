@@ -140,23 +140,33 @@ class BDGDDBInterface:
     def get_all_region(self, limit: int | None = None, offset: int | None = None, mapped: bool = True) -> Sequence[RowMapping]:
         return self._execute_select_many_regions_stmt(limit=limit, offset=offset, mapped=mapped) # type: ignore
         
-    def get_region_by_id(self, id: str, mapped: bool = True) -> RowMapping | None:
-        whereclause = self.region_table.c.bdgd_id == id
-        return self._execute_select_region_stmt(whereclause, mapped=mapped) # type: ignore
-        
+    def get_region_by_id(self, id: int, mapped: bool = True) -> RowMapping | None:
+        """
+        Busca por ID interno (coluna primary key 'id').
+        """
+        whereclause = self.region_table.c.id == id
+        return self._execute_select_region_stmt(whereclause, mapped=mapped)  # type: ignore
+
     def get_region_by_bdgd_id(self, bdgd_id: str, mapped: bool = True) -> RowMapping | None:
+        """
+        Busca por bdgd_id (id de download ANEEL).
+        """
         whereclause = self.region_table.c.bdgd_id == bdgd_id
-        return self._execute_select_region_stmt(whereclause, mapped=mapped) # type: ignore
+        return self._execute_select_region_stmt(whereclause, mapped=mapped)  # type: ignore
 
-        
     def get_region_by_cod_id(self, cod_id: str, mapped: bool = True) -> RowMapping | None:
-        whereclause = self.region_table.c.bdgd_id == cod_id
-        return self._execute_select_region_stmt(whereclause, mapped=mapped) # type: ignore
+        """
+        Busca por cod_id (id no BDGD).
+        """
+        whereclause = self.region_table.c.cod_id == cod_id
+        return self._execute_select_region_stmt(whereclause, mapped=mapped)  # type: ignore
 
-        
     def get_region_by_dist(self, dist: str | int, mapped: bool = True) -> RowMapping | None:
-        whereclause = self.region_table.c.bdgd_id == dist
-        return self._execute_select_region_stmt(whereclause, mapped=mapped) # type: ignore
+        """
+        Busca por dist (distribuidora).
+        """
+        whereclause = self.region_table.c.dist == str(dist)
+        return self._execute_select_region_stmt(whereclause, mapped=mapped)  # type: ignore
 
         
     def get_region_by_bdgd_name(self, bdgd_name: str, mapped: bool = True) -> RowMapping | None:
