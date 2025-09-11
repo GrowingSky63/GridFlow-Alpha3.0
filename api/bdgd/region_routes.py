@@ -7,20 +7,23 @@ bdgd_manager = BDGDManager()
 
 @router.get("/region", tags=["BDGD"])
 def get_region(
-    id: int | None = Query(None, description="Filtrar por ID interno da região (GridFlow)."),
-    bdgd_id: str | None = Query(None, description="Filtrar por ID da região (id de download na ANEEL)."),
-    cod_id: str | None = Query(None, description="Filtrar por ID da região (id no BDGD)."),
-    name: str | None = Query(None, description="Filtrar por nome da região (bdgd_name)."),
-    poi: str | None = Query(None, description="Ponto de Interesse no formato 'longitude,latitude' (ex: '-49.72,-25.55')."),
+    id: int | None = Query(None, description="Buscar por ID interno da região (GridFlow)."),
+    bdgd_id: str | None = Query(None, description="Buscar por ID da região (id de download na ANEEL)."),
+    cod_id: str | None = Query(None, description="Buscar por ID da região (id no BDGD)."),
+    name: str | None = Query(None, description="Buscar por nome da região (bdgd_name)."),
+    dist: str | None = Query(None, description="Buscar pelo código da distribuidora."),
+    poi: str | None = Query(None, description="Buscar a subestação mais próxima do Ponto de Interesse no formato 'latitude,longitude' (ex: '-25.55,-49.72')."),
     limit: int | None = Query(None, description="Caso não seja utilizado nenhum filtro, o limite de registros para retornar."),
     offset: int | None = Query(None, description="Caso não seja utilizado nenhum filtro, por qual registro deve começar para retornar.")
 ):
+    
     # Parâmetros exclusivos (apenas um pode ser usado por requisição)
     unique_candidates = [
         ("id", id),
         ("bdgd_id", bdgd_id),
         ("cod_id", cod_id),
         ("name", name),
+        ("dist", dist),
         ("poi", poi)
     ]
     unique_params = [(k, v) for k, v in unique_candidates if v is not None]
@@ -39,16 +42,18 @@ def get_region(
 
     match param_name:
         case "id":
-            content = bdgd_manager.interface.get_region_by_id(int(param_value))  # type: ignore
+            content = bdgd_manager.interface.get_region_by_id(int(param_value))
         case "bdgd_id":
             content = bdgd_manager.interface.get_region_by_bdgd_id(str(param_value))
         case "cod_id":
             content = bdgd_manager.interface.get_region_by_cod_id(str(param_value))
         case "name":
             content = bdgd_manager.interface.get_region_by_bdgd_name(str(param_value))
+        case "dist":
+            content = bdgd_manager.interface.get_region_by_dist(str(param_value))
         case "poi":
             try:
-                lon_str, lat_str = str(param_value).split(',')
+                lat_str, lon_str = str(param_value).split(',')
                 lon = float(lon_str.strip())
                 lat = float(lat_str.strip())
             except Exception as e:
