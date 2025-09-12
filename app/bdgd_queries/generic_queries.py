@@ -3,7 +3,7 @@ from geoalchemy2 import WKTElement
 from sqlalchemy import BinaryExpression, Engine, Table, cast
 from sqlalchemy.engine import Row, RowMapping
 from sqlalchemy.sql import ColumnElement, select
-from geoalchemy2.functions import ST_AsText, ST_Distance, ST_Centroid
+from geoalchemy2.functions import ST_Distance, ST_Centroid, ST_Contains, ST_Area
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import func
 
@@ -89,6 +89,28 @@ class GenericQueryMixin:
                 ST_Distance(ST_Centroid(table.c.geometry), point).label('distance')
             )
         stmt = stmt.order_by('distance').limit(1)
+        with self.engine.begin() as conn:
+            if mapped:
+                return conn.execute(stmt).mappings().first()
+            return conn.execute(stmt).first()
+
+    def _select_one_by_poi_within(
+        self,
+        table: Table,
+        poi: tuple[float, float],
+        mapped: bool = True,
+        geometry: bool = True
+    ) -> RowMapping | Row[Any] | None:
+        poi_wkt = WKTElement(f'POINT({poi[0]} {poi[1]})', srid=4326)
+        cols_wo_geom = [c for c in table.c if c.name != 'geometry']
+        if geometry:
+            geom_col = table.c.geometry
+            if mapped:
+                geom_col = cast(geom_col, JSONB)
+            stmt = select(*cols_wo_geom, geom_col)
+        else:
+            stmt = select(*cols_wo_geom)
+        stmt = stmt.where(ST_Contains(table.c.geometry, poi_wkt)).order_by(ST_Area(table.c.geometry)).limit(1)
         with self.engine.begin() as conn:
             if mapped:
                 return conn.execute(stmt).mappings().first()

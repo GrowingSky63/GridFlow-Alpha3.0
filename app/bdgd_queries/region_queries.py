@@ -2,8 +2,6 @@ from typing import Any, Sequence
 from sqlalchemy import Engine, Table
 from sqlalchemy.engine import Row, RowMapping
 from sqlalchemy.sql import select
-from geoalchemy2 import WKTElement
-from geoalchemy2.functions import ST_Contains
 
 class RegionQueryMixin:
     """
@@ -63,7 +61,4 @@ class RegionQueryMixin:
         return self._select_one(self.region_table, where, mapped, geometry)  # type: ignore
 
     def get_region_by_poi(self, poi: tuple[float, float], mapped: bool = True, geometry: bool = True):
-        # POINT(lon lat)
-        poi_wkt = WKTElement(f'POINT({poi[0]} {poi[1]})', srid=4326)
-        where = ST_Contains(self.region_table.c.geometry, poi_wkt)
-        return self._select_one(self.region_table, where, mapped, geometry)  # type: ignore
+        return self._select_one_by_poi_within(self.region_table, poi, mapped, geometry) # type: ignore

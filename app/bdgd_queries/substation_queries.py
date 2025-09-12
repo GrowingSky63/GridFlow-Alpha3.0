@@ -1,9 +1,6 @@
 from typing import Any, Sequence
 from sqlalchemy import Engine, Table
 from sqlalchemy.engine import Row, RowMapping
-from sqlalchemy.sql import select
-from geoalchemy2 import WKTElement
-from geoalchemy2.functions import ST_Distance, ST_AsText, ST_Centroid
 
 class SubstationQueryMixin:
     """
