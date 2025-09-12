@@ -13,6 +13,7 @@ def get_region(
     name: str | None = Query(None, description="Buscar por nome da região (bdgd_name)."),
     dist: str | None = Query(None, description="Buscar pelo código da distribuidora."),
     poi: str | None = Query(None, description="Buscar a região que atua no Ponto de Interesse no formato 'latitude,longitude' (ex: '-25.55,-49.72')."),
+    geometry: bool = Query(True, description="Opção para trazer ou não a geometria da região."),
     limit: int | None = Query(None, description="Caso não seja utilizado nenhum filtro, o limite de registros para retornar."),
     offset: int | None = Query(None, description="Caso não seja utilizado nenhum filtro, por qual registro deve começar para retornar.")
 ):
@@ -37,21 +38,21 @@ def get_region(
 
     if len(unique_params) == 0:
         # Listagem paginada
-        return bdgd_manager.interface.get_all_regions(limit=limit, offset=offset)
+        return bdgd_manager.interface.get_all_regions(limit=limit, offset=offset, geometry=geometry)
 
     param_name, param_value = unique_params[0]
 
     match param_name:
         case "id":
-            content = bdgd_manager.interface.get_region_by_id(int(param_value))
+            content = bdgd_manager.interface.get_region_by_id(int(param_value), geometry=geometry)
         case "bdgd_id":
-            content = bdgd_manager.interface.get_region_by_bdgd_id(str(param_value))
+            content = bdgd_manager.interface.get_region_by_bdgd_id(str(param_value), geometry=geometry)
         case "cod_id":
-            content = bdgd_manager.interface.get_region_by_cod_id(str(param_value))
+            content = bdgd_manager.interface.get_region_by_cod_id(str(param_value), geometry=geometry)
         case "name":
-            content = bdgd_manager.interface.get_region_by_bdgd_name(str(param_value))
+            content = bdgd_manager.interface.get_region_by_bdgd_name(str(param_value), geometry=geometry)
         case "dist":
-            content = bdgd_manager.interface.get_region_by_dist(str(param_value))
+            content = bdgd_manager.interface.get_region_by_dist(str(param_value), geometry=geometry)
         case "poi":
             try:
                 lat_str, lon_str = str(param_value).split(',')
@@ -63,7 +64,7 @@ def get_region(
                     f"{param_value} não é um par de coordenadas válido. Use 'longitude,latitude' (ex: '-49.72,-25.55'). Detalhe: {e}"
                 )
             poi_coord = (lon, lat)  # POINT(lon lat)
-            content = bdgd_manager.interface.get_region_by_poi(poi_coord)
+            content = bdgd_manager.interface.get_region_by_poi(poi_coord, geometry=geometry)
         case _:
             raise HTTPException(400, f"Parâmetro {param_name} inválido.")
 
