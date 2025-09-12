@@ -125,3 +125,14 @@ class BDGDDBInterface(
             if schema_name in inspector.get_schema_names():
                 return
             conn.execute(CreateSchema(schema_name))
+
+if __name__ == "__main__":
+    from sqlalchemy.sql import select, cast
+    from geoalchemy2.functions import ST_AsGeoJSON
+    from json import loads
+    from sqlalchemy.dialects.postgresql import JSONB
+    interface = BDGDDBInterface()
+    with interface.engine.begin() as conn:
+        stmt = select(cast(ST_AsGeoJSON(interface.region_table.c.geometry), JSONB)).where(interface.region_table.c.id == 1)
+        result = conn.execute(stmt).scalar()
+        pass

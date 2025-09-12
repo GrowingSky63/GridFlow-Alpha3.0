@@ -1,5 +1,20 @@
+# local environment and cache
 venv/
 .env
-*__pycache__/
 deprecated/
+*__pycache__/
+todo*
+*.todo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
 .vscode

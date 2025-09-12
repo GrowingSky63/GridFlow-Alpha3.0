@@ -1,8 +1,9 @@
 from typing import Sequence, Any
-from sqlalchemy import BinaryExpression, Engine, Select, Table
+from sqlalchemy import BinaryExpression, Engine, Select, Table, cast
 from sqlalchemy.engine import Row, RowMapping
 from sqlalchemy.sql import ColumnElement, select
 from geoalchemy2.functions import ST_AsText
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import func
 
 class GenericQueryMixin:
@@ -20,8 +21,11 @@ class GenericQueryMixin:
         mapped: bool = True
     ) -> RowMapping | Row[Any] | None:
         cols_wo_geom = [c for c in table.c if c.name != 'geometry']
+        geom_col = table.c.geometry
+        if mapped:
+            geom_col = cast(geom_col, JSONB)
         stmt: Select = (
-            select(*cols_wo_geom, ST_AsText(table.c.geometry).label('geometry'))
+            select(*cols_wo_geom, geom_col)
             .where(whereclause)
             .limit(1)
         )
@@ -34,12 +38,15 @@ class GenericQueryMixin:
         self,
         table: Table,
         whereclause: BinaryExpression[bool] | ColumnElement[bool] | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
+        limit: int = 20,
+        offset: int = 1,
         mapped: bool = True
     ) -> Sequence[RowMapping] | Sequence[Row[Any]]:
         cols_wo_geom = [c for c in table.c if c.name != 'geometry']
-        base = select(*cols_wo_geom, ST_AsText(table.c.geometry).label('geometry'))
+        geom_col = table.c.geometry
+        if mapped:
+            geom_col = cast(geom_col, JSONB)
+        base = select(*cols_wo_geom, geom_col)
         if whereclause is not None:
             base = base.where(whereclause)
         if offset is not None:

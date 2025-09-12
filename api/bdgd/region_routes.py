@@ -26,6 +26,7 @@ def get_region(
         ("dist", dist),
         ("poi", poi)
     ]
+
     unique_params = [(k, v) for k, v in unique_candidates if v is not None]
 
     if len(unique_params) > 1:
