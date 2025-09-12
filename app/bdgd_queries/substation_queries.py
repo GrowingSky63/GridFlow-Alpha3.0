@@ -43,20 +43,4 @@ class SubstationQueryMixin:
         """
         Retorna a subestação mais próxima do ponto (lon, lat) usando o centróide da geometria.
         """
-        lon, lat = poi
-        point = WKTElement(f'POINT({lon} {lat})', srid=4326)
-
-        cols_wo_geom = [c for c in self.substation_table.c if c.name != 'geometry']
-        stmt = (
-            select(
-                *cols_wo_geom,
-                ST_AsText(self.substation_table.c.geometry).label('geometry'),
-                ST_Distance(ST_Centroid(self.substation_table.c.geometry), point).label('distance')
-            )
-            .order_by('distance')
-            .limit(1)
-        )
-        with self.engine.begin() as conn:
-            if mapped:
-                return conn.execute(stmt).mappings().first()
-            return conn.execute(stmt).first()
+        return self._select_one_by_poi_nearest(self, self.substation_table, poi, mapped, geometry) # type: ignore
