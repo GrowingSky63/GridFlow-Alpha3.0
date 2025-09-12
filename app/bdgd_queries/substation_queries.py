@@ -43,4 +43,4 @@ class SubstationQueryMixin:
         """
         Retorna a subestação mais próxima do ponto (lon, lat) usando o centróide da geometria.
         """
-        return self._select_one_by_poi_nearest(self, self.substation_table, poi, mapped, geometry) # type: ignore
+        return self._select_one_by_poi_nearest(self.substation_table, poi, mapped, geometry) # type: ignore
