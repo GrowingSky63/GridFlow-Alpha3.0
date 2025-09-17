@@ -38,7 +38,7 @@ class RegionQueryMixin:
         geometry: bool = True,
         simplify_tolerance: float = 0
     ) -> Sequence[RowMapping] | Sequence[Row[Any]]:
-        return self._select_many(self.region_table, None, limit, offset, mapped, geometry)  # type: ignore
+        return self._select_many(self.region_table, None, limit, offset, mapped, geometry, simplify_tolerance)  # type: ignore
 
     # Filtros
     def get_region_by_id(
