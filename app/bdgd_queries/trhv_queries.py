@@ -57,18 +57,16 @@ class TrhvQueryMixin:
         pairs: list[tuple[str, str]],
         geometry: bool = True
     ) -> dict[tuple[str, str], list[dict]]:
-        """
-        Recupera transformadores de várias subestações em UMA consulta e agrupa.
-        pairs: lista de (substation_cod_id, dist)
-        Retorna: { (cod_id, dist): [ {transformador...}, ... ] }
-        """
         if not pairs:
             return {}
 
-        from sqlalchemy import select, tuple_
+        from sqlalchemy import select, tuple_, cast as sa_cast
         from sqlalchemy.dialects.postgresql import JSONB
+        from sqlalchemy.sql.elements import ColumnElement
         from geoalchemy2.functions import ST_AsGeoJSON
-        rows_expr = [
+
+        # Anotamos explicitamente para evitar inferência apenas de Column
+        rows_expr: list[ColumnElement[Any]] = [
             self.trhv_table.c.substation,
             self.trhv_table.c.dist,
             self.trhv_table.c.id,
@@ -76,14 +74,13 @@ class TrhvQueryMixin:
             self.trhv_table.c.power
         ]
         if geometry:
-            geom = ST_AsGeoJSON(self.trhv_table.c.geometry).cast(JSONB).label('geometry')
+            geom: ColumnElement[Any] = sa_cast(ST_AsGeoJSON(self.trhv_table.c.geometry), JSONB).label('geometry')
             rows_expr.append(geom)
 
         stmt = (
             select(*rows_expr)
             .where(
-                tuple_(self.trhv_table.c.substation, self.trhv_table.c.dist)
-                .in_(pairs)
+                tuple_(self.trhv_table.c.substation, self.trhv_table.c.dist).in_(pairs)
             )
         )
 
