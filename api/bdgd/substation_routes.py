@@ -37,12 +37,12 @@ def get_region(
     if len(unique_params) == 0:
         substations = bdgd_manager.interface.get_all_substations(limit=limit, offset=offset, geometry=geometry)
         if include_trhvs:
-            # substations é uma sequência de RowMapping (mapped=True por padrão)
-            pairs = [(s['cod_id'], s['dist']) for s in substations] # type: ignore
+            # Converte RowMapping -> dict para permitir mutação
+            substations = [dict(r) for r in substations]
+            pairs = [(s['cod_id'], s['dist']) for s in substations]
             grouped = bdgd_manager.interface.get_trhvs_grouped_by_substations(pairs, geometry=geometry)
             for s in substations:
-                key = (s['cod_id'], s['dist']) # type: ignore
-                s['untrats'] = grouped.get(key, []) # type: ignore
+                s['untrats'] = grouped.get((s['cod_id'], s['dist']), [])
         return substations
 
     param_name, param_value = unique_params[0]
@@ -71,17 +71,21 @@ def get_region(
         case _:
             raise HTTPException(400, f"Parâmetro {param_name} inválido.")
 
+    # 'content' pode ser único ou lista
     if content is not None and include_trhvs:
-        # Pode ser um único registro (mapping) ou lista (ex: dist)
         if isinstance(content, list):
+            content = [dict(r) for r in content]
             pairs = [(s['cod_id'], s['dist']) for s in content]
             grouped = bdgd_manager.interface.get_trhvs_grouped_by_substations(pairs, geometry=geometry)
             for s in content:
                 s['untrats'] = grouped.get((s['cod_id'], s['dist']), [])
         else:
+            # único registro (RowMapping) -> dict
+            if not isinstance(content, dict):
+                content = dict(content)
             pairs = [(content['cod_id'], content['dist'])]
             grouped = bdgd_manager.interface.get_trhvs_grouped_by_substations(pairs, geometry=geometry)
             content['untrats'] = grouped.get((content['cod_id'], content['dist']), [])
-        return content
+    return content
 
     raise HTTPException(404, "Área de atuação não encontrada")
