@@ -46,7 +46,7 @@ class BDGDManager:
         mask_has_required = df['tags'].apply(lambda tags: required_tags.issubset(set(tags)))
         df = df[mask_has_required].copy()
         df = df[df['tags'].apply(lambda tags: ' - '.join(tags[-2:])) == df['title']].copy()
-        df['bdgd_date'] = df['tags'].apply(lambda tags: datetime(*(int(i) for i in tags[-1].split('-')))) # type: ignore
+        df['bdgd_date'] = pd.to_datetime(df['tags'].str[-1], format='%Y-%m-%d', errors='coerce')
         df['bdgd_name'] = df['tags'].apply(lambda tags: tags[-2])
         df['tags'] = df['tags'].apply(lambda tags: tags[:-2])
         df = df.sort_values(by='bdgd_date', ascending=False).reset_index(drop=True)
