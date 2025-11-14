@@ -1,5 +1,6 @@
-from bdgd_interface import BDGDDBInterface
-from bdgd_downloader import BDGDDownloader, BDGDListDownloader
+import re
+from .bdgd_interface import BDGDDBInterface
+from .bdgd_downloader import BDGDDownloader, BDGDListDownloader
 import geopandas as gpd
 import pandas as pd
 from typing import Literal
@@ -35,37 +36,45 @@ class BDGDManager:
             with BDGDListDownloader(temp_folder) as f:
                 return self.normalize_df_bdgd_list(pd.read_csv(f))
 
+    def parse_title(self, title: str) -> tuple[str, str, datetime]:
+        """
+        Retorna uma tupla com as informações extraídas do título.
+        (`bdgd_name`, `dist`, `bdgd_date`)
+        """
+        date_pattern = r'20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])'
+        match = re.search(date_pattern, title)
+        if not match:
+            raise ValueError("Data no formato esperado não encontrada no título.")
+        bdgd_date = datetime.strptime(match.group(), '%Y-%m-%d')
+        dist = title[:match.start()].strip('_').split('_')[-1]
+        bdgd_name = title[:title.index(dist)].strip('_')
+        return bdgd_name, dist, bdgd_date
+
     def normalize_df_bdgd_list(self, raw_df: pd.DataFrame) -> pd.DataFrame:
         """
         Método para normalização do df responsável por guardar o índice de arquivos disponíveis nos dados abertos da ANEEL
         """
-        def extract_dist_from_title(title: str, bdgd_name: str) -> str:
-            return title.lower().strip(f'{bdgd_name}_'.lower()).split('_')[0]
-        
-        df = raw_df[['id', 'title', 'type', 'tags']]
-        df = df[df['type'] == 'File Geodatabase'].copy()
-        df['tags'] = df['tags'].apply(lambda i: i.split(','))
+        document_type = 'File Geodatabase'
         required_tags = {'BDGD', 'SIG-R', 'Distribuicao'}
-        mask_has_required = df['tags'].apply(lambda tags: required_tags.issubset(set(tags)))
-        df = df[mask_has_required].copy()
-        df = df[df['tags'].apply(lambda tags: ' - '.join(tags[-2:])) == df['title']].copy()
-        df['bdgd_date'] = pd.to_datetime(df['tags'].str[-1], format='%Y-%m-%d', errors='coerce')
-        df['bdgd_name'] = df['tags'].apply(lambda tags: tags[-2])
-        df['tags'] = df['tags'].apply(lambda tags: tags[:-2])
-        df['dist'] = df.apply(lambda row: extract_dist_from_title(row['title'], row['bdgd_name']), axis=1)
+        df = raw_df
+        df = df[df['type'] == document_type].reset_index(drop=True)
+        df['tags'] = df['tags'].apply(lambda i: set(i.split(',')))
+        df = df[df['tags'].apply(lambda tags: required_tags.issubset(tags))]
+        df['tags'] = df['tags'].apply(lambda tags: tags - required_tags)
+        df['bdgd_name'], df['dist'], df['bdgd_date'] = zip(*df['title'].apply(self.parse_title))
+        df = df[['id', 'title', 'bdgd_name', 'dist', 'bdgd_date']]
         df = df.sort_values(by='bdgd_date', ascending=False).reset_index(drop=True)
-
         return df
 
     # Download dos bdgds nos dados abertos da ANEEL
-    def download_and_save_bdgd_search_layers(self, bdgd_full_name: str, bdgd_id: str, dist: str):
-        if self.interface.region_exists(dist):
-            self.interface.update_bdgd_search_layers_on_db(dist)
+    def download_and_save_bdgd_search_layers(self, bdgd_row: pd.Series):
+        if self.interface.region_exists(bdgd_row['dist']):
+            self.interface.update_bdgd_search_layers_on_db(bdgd_row['dist'])
         
-        bdgd_search_gdfs = self.get_all_search_layers_to_gdf(bdgd_full_name, bdgd_id)
+        bdgd_search_gdfs = self.get_all_search_layers_to_gdf(bdgd_row)
         if not bdgd_search_gdfs:
             return
-        print(f'\033[31m\n{bdgd_full_name}\033[m')
+        print(f'\033[31m\n{bdgd_row['title']}\033[m')
         self.interface.save_bdgd_search_layers_to_db(bdgd_search_gdfs)
 
     def download_and_save_all_bdgd_search_layers(self, year: int):
@@ -79,7 +88,7 @@ class BDGDManager:
                 leave=False
             )
         for _, row in iterator:
-            self.download_and_save_bdgd_search_layers(row['title'], row['id'],  row['dist'])
+            self.download_and_save_bdgd_search_layers(row)
 
     def download_and_save_entire_bdgd_by_poi(self, poi: tuple[float, float]):
         region_of_interest = self.interface.get_region_by_poi(poi, mapped = False)
@@ -121,13 +130,13 @@ class BDGDManager:
                         first = False
 
     # Leitura dos GDBs usando GeoDataFrames
-    def get_all_search_layers_to_gdf(self, bdgd_full_name: str, bdgd_id: str) -> dict[Literal['region', 'substation', 'trhv'], gpd.GeoDataFrame] | None:
+    def get_all_search_layers_to_gdf(self, bdgd_row: pd.Series) -> dict[Literal['region', 'substation', 'trhv'], gpd.GeoDataFrame] | None:
         """
         Método para download, normalização e instanciação no DB das camadas necessárias para pesquisa dos BDGDs. Este método fará o download de todos os BDGDs e coletará as camadas de pesquisa de cada um (ARAT, SUB e UNTRAT).
         """
         with TemporaryDirectory(prefix='gridflow-bdgd-') as temp_folder:
-            with BDGDDownloader(bdgd_id, bdgd_full_name, temp_folder, True, self.verbose) as bdgd_file:
-                region_gdf = self.normalize_gdf_region(gpd.read_file(bdgd_file, layer='ARAT'), bdgd_full_name, bdgd_id)
+            with BDGDDownloader(bdgd_row['id'], bdgd_row['title'], temp_folder, True, self.verbose) as bdgd_file:
+                region_gdf = self.normalize_gdf_region(gpd.read_file(bdgd_file, layer='ARAT'), bdgd_row)
                 
                 substation_gdf = self.normalize_gdf_substation(gpd.read_file(bdgd_file, layer='SUB'))
 
@@ -139,7 +148,7 @@ class BDGDManager:
                     'trhv': trhv_gdf
                 }
 
-    def normalize_gdf_region(self, raw_gdf: gpd.GeoDataFrame, bdgd_full_name: str, bdgd_id: str) -> gpd.GeoDataFrame:
+    def normalize_gdf_region(self, raw_gdf: gpd.GeoDataFrame, bdgd_row: pd.Series) -> gpd.GeoDataFrame:
         """
         Método para normalizar o gdf da layer ARAT de um BDGD. Este gdf alimentará a tabela region do DB
         """
@@ -148,14 +157,10 @@ class BDGDManager:
             'DIST': 'dist'
         })
         region_gdf = region_gdf[['cod_id', 'dist', 'geometry']]
+        region_gdf['bdgd_name'] = bdgd_row['bdgd_name']
+        region_gdf['bdgd_date'] = bdgd_row['bdgd_date']
 
-        region_gdf['bdgd_full_name'] = bdgd_full_name
-
-        bdgd_name, bdgd_date = self.get_name_and_date_from_bdgd_full_name(bdgd_full_name)
-        region_gdf['bdgd_name'] = bdgd_name
-        region_gdf['bdgd_date'] = bdgd_date
-
-        region_gdf['bdgd_id'] = bdgd_id
+        region_gdf['bdgd_id'] = bdgd_row['id']
 
         return region_gdf
 
@@ -184,12 +189,6 @@ class BDGDManager:
         # Remove linhas com substation vazio ou nulo
         trhv_gdf = trhv_gdf[trhv_gdf['substation'].notnull() & (trhv_gdf['substation'] != '')].copy()
         return trhv_gdf[['cod_id', 'substation', 'dist', 'power', 'geometry']]
-
-    # Utils
-    def get_name_and_date_from_bdgd_full_name(self, bdgd_full_name: str) -> tuple[str, datetime]:
-        bdgd_name, bdgd_str_date = bdgd_full_name.split(' - ')
-        year, month, day = [int(i) for i in bdgd_str_date.split('-')]
-        return bdgd_name, datetime(year, month, day)
 
 if __name__ == '__main__':
     bdgd_manager = BDGDManager(verbose=True)
