@@ -17,11 +17,11 @@ class RegionQueryMixin:
     region_table: Table
 
     # Existência
-    def region_exists(self, bdgd_id: str) -> bool:
+    def region_exists(self, dist: str) -> bool:
         with self.engine.begin() as conn:
             stmt = (
                 select(self.region_table.c.id)
-                .where(self.region_table.c.bdgd_id == bdgd_id)
+                .where(self.region_table.c.dist == dist)
                 .limit(1)
             )
             return conn.execute(stmt).first() is not None

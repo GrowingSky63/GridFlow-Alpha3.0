@@ -39,6 +39,9 @@ class BDGDManager:
         """
         Método para normalização do df responsável por guardar o índice de arquivos disponíveis nos dados abertos da ANEEL
         """
+        def extract_dist_from_title(title: str, bdgd_name: str) -> str:
+            return title.lower().strip(f'{bdgd_name}_'.lower()).split('_')[0]
+        
         df = raw_df[['id', 'title', 'type', 'tags']]
         df = df[df['type'] == 'File Geodatabase'].copy()
         df['tags'] = df['tags'].apply(lambda i: i.split(','))
@@ -49,14 +52,15 @@ class BDGDManager:
         df['bdgd_date'] = pd.to_datetime(df['tags'].str[-1], format='%Y-%m-%d', errors='coerce')
         df['bdgd_name'] = df['tags'].apply(lambda tags: tags[-2])
         df['tags'] = df['tags'].apply(lambda tags: tags[:-2])
+        df['dist'] = df.apply(lambda row: extract_dist_from_title(row['title'], row['bdgd_name']), axis=1)
         df = df.sort_values(by='bdgd_date', ascending=False).reset_index(drop=True)
 
         return df
 
     # Download dos bdgds nos dados abertos da ANEEL
-    def donwload_and_save_bdgd_search_layers(self, bdgd_full_name: str, bdgd_id: str):
-        if self.interface.region_exists(bdgd_id):
-            return
+    def download_and_save_bdgd_search_layers(self, bdgd_full_name: str, bdgd_id: str, dist: str):
+        if self.interface.region_exists(dist):
+            self.interface.update_bdgd_search_layers_on_db(dist)
         
         bdgd_search_gdfs = self.get_all_search_layers_to_gdf(bdgd_full_name, bdgd_id)
         if not bdgd_search_gdfs:
@@ -75,9 +79,9 @@ class BDGDManager:
                 leave=False
             )
         for _, row in iterator:
-            self.donwload_and_save_bdgd_search_layers(row['title'], row['id'])
+            self.download_and_save_bdgd_search_layers(row['title'], row['id'],  row['dist'])
 
-    def donwload_and_save_entire_bdgd_by_poi(self, poi: tuple[float, float]):
+    def download_and_save_entire_bdgd_by_poi(self, poi: tuple[float, float]):
         region_of_interest = self.interface.get_region_by_poi(poi, mapped = False)
         
         if not region_of_interest:
@@ -191,4 +195,4 @@ if __name__ == '__main__':
     bdgd_manager = BDGDManager(verbose=True)
 
     poi = -49.72071732124833, -25.555419806716376
-    bdgd_manager.donwload_and_save_entire_bdgd_by_poi(poi)
+    bdgd_manager.download_and_save_entire_bdgd_by_poi(poi)

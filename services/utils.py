@@ -1,5 +1,5 @@
 from sqlalchemy import URL
-import os
+import os, re
 
 def load_env_if_exists():
     """
@@ -26,3 +26,9 @@ def make_url_by_environment(db_name='postgres') -> URL:
         password=os.getenv('DB_PASSWORD', 'postgres'),
         database=os.getenv('DB_BDGD_NAME', db_name),
     )
+
+def to_camel(s: str) -> str:
+    parts: list[str] = re.findall(r"[0-9A-Za-zÀ-ÖØ-öø-ÿ]+", s)
+    if not parts:
+      return ""
+    return parts[0].lower() + "".join(p.capitalize() for p in parts[1:])

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.bdgd_manager import BDGDManager
+from services.bdgd_manager import BDGDManager
 
 router = APIRouter()
 

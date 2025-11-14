@@ -1,0 +1,174 @@
+import geopandas as gpd
+from numpy import extract
+from pyogrio import list_layers
+import os, requests, dotenv
+from services.bdgd_downloader import BDGDDownloader
+from utils import to_camel
+
+dotenv.load_dotenv()
+CRS = 'EPSG:4674'
+
+def open_gdb_layer(gdb_path: str, layer_name: str) -> gpd.GeoDataFrame:
+  df = gpd.read_file(gdb_path, layer=layer_name)
+  if isinstance(df, gpd.GeoDataFrame):
+    return df.to_crs(CRS)
+  return df
+
+def get_all_gdb_in_folder(folder_path: str) -> list[str]:
+  return [path for path in os.listdir(folder_path) if path.endswith('.gdb')]
+
+def find_gdb_by_name(folder_path: str, bdgd_name: str) -> str:
+  gdbs = [gdb for gdb in get_all_gdb_in_folder(folder_path) if bdgd_name.lower() in gdb.lower()]
+  if not gdbs or len(gdbs) < 1:
+    raise FileNotFoundError('No BDGD found for the specified POI.')
+  gdbs.sort()
+  return gdbs[-1]
+
+def layers_exists(gdb_path: str, layers: list[str]) -> bool:
+  actual_layers_in_gdb = {name for name, *_ in list_layers(gdb_path)}
+  bdgd_layers_set = set(layers)
+  missing_layers = bdgd_layers_set - actual_layers_in_gdb
+  if len(missing_layers) > 0:
+    return False
+  return True
+
+def filter_bdgd_layer_by_substation_cod_id(bdgd_layer: gpd.GeoDataFrame, substation_cod_id: str) -> gpd.GeoDataFrame:
+  if 'SUB' not in bdgd_layer.columns:
+    return bdgd_layer.loc[bdgd_layer['COD_ID'] == substation_cod_id]
+  return bdgd_layer.loc[bdgd_layer['SUB'] == substation_cod_id]
+
+def layer_mapper(gdb_path: str, layers: list[str], filter_by_substation_cod_id: str | None = None, layers_to_filter: list[str] | None = None) -> dict[str, gpd.GeoDataFrame]:
+  if filter_by_substation_cod_id is None and layers_to_filter is not None:
+    raise ValueError('layers_to_filter can only be provided if filter_by_substation_cod_id is also provided.')
+  if filter_by_substation_cod_id is not None and layers_to_filter is None:
+    layers_to_filter = layers
+  layer_dict: dict[str, gpd.GeoDataFrame] = {}
+  for layer_name in layers:
+    if filter_by_substation_cod_id is not None and layer_name in layers_to_filter: # type: ignore
+      layer_dict[layer_name] = filter_bdgd_layer_by_substation_cod_id(open_gdb_layer(gdb_path, layer_name), filter_by_substation_cod_id)
+    else:
+      layer_dict[layer_name] = open_gdb_layer(gdb_path, layer_name)
+  return layer_dict
+
+def create_poi_gdf(poi: tuple[float, float], desc: str) -> gpd.GeoDataFrame:
+  poi_gdf = gpd.GeoDataFrame(
+    {'description': [desc]},
+    geometry=gpd.points_from_xy([poi[1]], [poi[0]]),
+    crs=CRS
+  )
+  return poi_gdf
+
+def poi_gpkg_exists(study_folder_path: str, study_name: str) -> bool:
+  poi_gpkg_path = os.path.join(study_folder_path, f'POI_{study_name}.gpkg')
+  return os.path.isfile(poi_gpkg_path)
+
+def substation_gpkg_exists(study_folder_path: str, substation_cod_id: str, bdgd_name: str) -> bool:
+  substation_gpkg_path = os.path.join(study_folder_path, f'{substation_cod_id}_{bdgd_name}.gpkg')
+  return os.path.isfile(substation_gpkg_path)
+
+def create_study_folder(studies_folder_path: str, study_name: str) -> str:
+  study_folder_path = os.path.join(studies_folder_path, study_name)
+  os.makedirs(study_folder_path, exist_ok=True)
+  return study_folder_path
+
+def create_poi_gpkg(study_folder_path: str, study_name: str, poi_gdf: gpd.GeoDataFrame) -> str:
+  poi_gpkg_path = os.path.join(study_folder_path, f'POI_{study_name}.gpkg')
+  poi_gdf.to_file(poi_gpkg_path, driver='GPKG', layer='Pontos de Interesse')
+  return poi_gpkg_path
+
+def create_substation_gpkg(study_folder_path: str, substation_cod_id: str, bdgd_name: str, substation_gdfs: dict[str, gpd.GeoDataFrame]) -> str:
+  substation_gpkg_path = os.path.join(study_folder_path, f'{substation_cod_id}_{bdgd_name}.gpkg')
+  for layer_name, gdf in substation_gdfs.items():
+    gdf.to_file(
+      substation_gpkg_path,
+      driver='GPKG',
+      layer=layer_name.strip('_tab').lower(),
+      mode='a'
+    )
+  return substation_gpkg_path
+
+
+STUDIES_FOLDER_PATH = os.path.normpath(os.environ.get('STUDIES_FOLDER_PATH', ''))
+BDGD_FOLDER_PATH = os.path.normpath(os.environ.get('BDGD_FOLDER_PATH', ''))
+GRIDFLOW_BDGD_API_URL = os.environ.get('GRIDFLOW_BDGD_API_URL', 'http://172.25.0.232:8000/api/bdgd')
+
+BDGD_LAYERS = [
+  'BAR',
+  'CRVCRG',
+  'CTMT',
+  'SEGCON',
+  'SSDBT',
+  'SSDMT',
+  'SUB',
+  'UCBT_tab',
+  'UCMT_tab',
+  'UGBT_tab',
+  'UGMT_tab',
+  'UNREAT',
+  'UNREMT',
+  'UNSEMT',
+  'UNTRAT',
+  'UNTRMT'
+]
+BDGD_LAYERS.sort()
+BDGD_LAYERS_TO_FILTER = list(set(BDGD_LAYERS) - {'CRVCRG', 'SEGCON'})
+BDGD_LAYERS_TO_FILTER.sort()
+
+def main(
+  study_name: str,
+  poi: tuple[float, float],
+  # bdgd_of_interest: str,
+  bdgd_id: str,
+  bdgd_name: str,
+  substation_cod_id: str
+  ) -> None:
+  with BDGDDownloader(bdgd_id, bdgd_name, BDGD_FOLDER_PATH, True) as gdb_path:
+    if not layers_exists(gdb_path, BDGD_LAYERS):
+      raise ValueError('One or more required layers are missing in the BDGD GDB.')
+
+    substation_gdfs = layer_mapper(
+      gdb_path,
+      BDGD_LAYERS,
+      substation_cod_id,
+      BDGD_LAYERS_TO_FILTER
+    )
+
+  study_folder_path = create_study_folder(STUDIES_FOLDER_PATH, study_name)
+
+  create_poi_gpkg(
+    study_folder_path,
+    study_name,
+    create_poi_gdf(poi, 'Ponto de Conexão')
+  ) if not poi_gpkg_exists(
+    study_folder_path,
+    study_name
+  ) else None
+
+  create_substation_gpkg(
+    study_folder_path,
+    substation_cod_id,
+    bdgd_name,
+    substation_gdfs
+  ) if not substation_gpkg_exists(
+    study_folder_path,
+    substation_cod_id,
+    bdgd_name
+  ) else None
+
+if __name__ == '__main__':
+  client_name = 'Paulo Gallo'
+  poi = (-24.452885, -53.436958)
+
+  study_name = to_camel(client_name)
+  region_of_interest = requests.get(f'{GRIDFLOW_BDGD_API_URL}/region?poi={poi[0]},{poi[1]}&geometry=f').json()
+  substation_of_interest = requests.get(f'{GRIDFLOW_BDGD_API_URL}/substation?poi={poi[0]},{poi[1]}&geometry=f').json()
+  # bdgd_of_interest = find_gdb_by_name(BDGD_FOLDER_PATH, region_of_interest['bdgd_name'])
+
+  main(
+    study_name,
+    poi,
+    # bdgd_of_interest,
+    region_of_interest['bdgd_id'],
+    region_of_interest['bdgd_name'],
+    substation_of_interest['cod_id'],
+  )
