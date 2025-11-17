@@ -1,4 +1,5 @@
 import re
+import time
 from .bdgd_interface import BDGDDBInterface
 from .bdgd_downloader import BDGDDownloader, BDGDListDownloader
 import geopandas as gpd
@@ -73,16 +74,23 @@ class BDGDManager:
 
     # Download dos bdgds nos dados abertos da ANEEL
     def download_and_save_bdgd_search_layers(self, bdgd_row: pd.Series):
-        if self.interface.region_is_updated(bdgd_row):
+        if not self.interface.region_is_updated(bdgd_row):
             if self.verbose:
                 print(f"BDGD search layers for {bdgd_row['title']} ({bdgd_row['bdgd_id']}) already exist in the database. Updating.")
             self.interface.remove_bdgd_search_layers_from_db(bdgd_row['dist'])
-        
+        if self.verbose:
+            print(f"Downloading and saving BDGD search layers for: {bdgd_row['title']}", end=' ')
+        start_time = time.time()
         bdgd_search_gdfs = self.get_all_search_layers_to_gdf(bdgd_row)
         if not bdgd_search_gdfs:
             return
-        print(f'\033[31m\n{bdgd_row['title']}\033[m')
+        if self.verbose:
+            print(f'({time.time() - start_time:.2f}s)')
+            print('Saving to database...', end=' ')
+        start_time = time.time()
         self.interface.save_bdgd_search_layers_to_db(bdgd_search_gdfs)
+        if self.verbose:
+            print(f'({time.time() - start_time:.2f}s)')
 
     def download_and_save_all_bdgd_search_layers(self, year: int):
         if self.verbose:

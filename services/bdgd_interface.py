@@ -88,7 +88,7 @@ class BDGDDBInterface(
 
     def remove_bdgd_search_layers_from_db(self, dist: str):
         """
-        Atualiza (remove) as camadas de busca existentes para uma determinada distribuidora.
+        Remove as camadas de busca existentes para uma determinada distribuidora.
         Remove region, substation e trhv associados ao dist especificado.
         """
         with self.engine.begin() as conn:
