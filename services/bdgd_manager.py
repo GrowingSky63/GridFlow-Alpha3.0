@@ -74,10 +74,17 @@ class BDGDManager:
 
     # Download dos bdgds nos dados abertos da ANEEL
     def download_and_save_bdgd_search_layers(self, bdgd_row: pd.Series):
-        if not self.interface.region_is_updated(bdgd_row):
+        is_updated = self.interface.region_is_updated(bdgd_row)
+        if is_updated:
             if self.verbose:
-                print(f"BDGD search layers for {bdgd_row['title']} ({bdgd_row['bdgd_id']}) already exist in the database. Updating.")
+                print(f"BDGD search layers for {bdgd_row['title']} ({bdgd_row['bdgd_id']}) are up to date in the database. Skipping.")
+            return
+        
+        if not is_updated:
+            if self.verbose:
+                print(f"BDGD search layers for {bdgd_row['title']} ({bdgd_row['bdgd_id']}) is deprecated or missing in the database. Updating.")
             self.interface.remove_bdgd_search_layers_from_db(bdgd_row['dist'])
+
         if self.verbose:
             print(f"Downloading and saving BDGD search layers for: {bdgd_row['title']}", end=' ')
         start_time = time.time()
