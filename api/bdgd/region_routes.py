@@ -91,7 +91,7 @@ def get_region(
             except Exception as e:
                 raise HTTPException(
                     400,
-                    f"{param_value} não é um par de coordenadas válido. Use 'longitude,latitude' (ex: '-49.72,-25.55'). Detalhe: {e}"
+                    f"{param_value} não é um par de coordenadas válido. Use 'latitude,longitude' (ex: '-25.55,-49.72'). Detalhe: {e}"
                 )
             poi_coord = (lon, lat)  # POINT(lon lat)
             content = bdgd_manager.interface.get_region_by_poi(

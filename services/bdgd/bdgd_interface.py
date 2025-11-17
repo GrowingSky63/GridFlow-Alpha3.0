@@ -6,7 +6,8 @@ from sqlalchemy import Column, DateTime, Engine, Float, ForeignKeyConstraint, In
 from sqlalchemy.schema import CreateSchema
 from sqlalchemy.exc import IntegrityError
 
-from .utils import make_url_by_environment
+from services.utils import make_url_by_environment
+
 from .bdgd_queries import GenericQueryMixin, RegionQueryMixin, SubstationQueryMixin, TrhvQueryMixin
 
 class _BDGDCore:

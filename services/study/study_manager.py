@@ -3,15 +3,24 @@ from typing import TypedDict
 import geopandas as gpd
 from pyogrio import list_layers
 import os, requests, dotenv
-from utils import to_camel
-from services.bdgd_downloader import BDGDDownloader
+from services.utils import to_camel
+from services.bdgd.bdgd_downloader import BDGDDownloader
 
 class RegionOfInterest(TypedDict):
-    bdgd_id: str
-    cod_id: str
-    dist: str
-    bdgd_name: str
-    distance: float
+  id: int
+  bdgd_id: str
+  cod_id: str
+  bdgd_full_name: str
+  bdgd_name: str
+  bdgd_date: str
+  dist: str
+
+class SubstationOfInterest(TypedDict):
+  id: int
+  cod_id: str
+  dist: str
+  name: str
+  distance: float
 
 dotenv.load_dotenv()
 CRS = 'EPSG:4674'
@@ -65,6 +74,10 @@ def create_poi_gdf(poi: tuple[float, float], desc: str) -> gpd.GeoDataFrame:
     crs=CRS
   )
   return poi_gdf
+
+def study_folder_exists(study_folder_path: str, study_name: str) -> bool:
+  study_folder_path = os.path.join(study_folder_path, study_name)
+  return os.path.isdir(study_folder_path)
 
 def poi_gpkg_exists(study_folder_path: str, study_name: str) -> bool:
   poi_gpkg_path = os.path.join(study_folder_path, f'POI_{study_name}.gpkg')

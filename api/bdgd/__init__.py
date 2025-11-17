@@ -1,3 +1,3 @@
-from services.bdgd_manager import BDGDManager
+from services.bdgd.bdgd_manager import BDGDManager
 
 bdgd_manager = BDGDManager(verbose=True)

@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.bdgd import region_routes, substation_routes, trhv_routes
+from api.app import study_routes
 
 api_prefix = '/api'
 bdgd_prefix = '/'.join([api_prefix, 'bdgd'])
+study_prefix = '/'.join([api_prefix, 'study'])
 
 app = FastAPI()
 
@@ -29,3 +31,5 @@ app.add_middleware(
 app.include_router(region_routes.router, prefix=bdgd_prefix)
 app.include_router(substation_routes.router, prefix=bdgd_prefix)
 app.include_router(trhv_routes.router, prefix=bdgd_prefix)
+
+app.include_router(study_routes.router, prefix=study_prefix)
