@@ -1,6 +1,6 @@
-from typing import Literal, TypedDict
+from tempfile import TemporaryDirectory
+from typing import TypedDict
 import geopandas as gpd
-from numpy import extract
 from pyogrio import list_layers
 import os, requests, dotenv
 from utils import to_camel
@@ -97,7 +97,6 @@ def create_substation_gpkg(study_folder_path: str, substation_cod_id: str, bdgd_
 
 
 STUDIES_FOLDER_PATH = os.path.normpath(os.environ.get('STUDIES_FOLDER_PATH', ''))
-BDGD_FOLDER_PATH = os.path.normpath(os.environ.get('BDGD_FOLDER_PATH', ''))
 GRIDFLOW_BDGD_API_URL = os.environ.get('GRIDFLOW_BDGD_API_URL', 'http://172.25.0.232:8000/api/bdgd')
 
 BDGD_LAYERS = [
@@ -125,21 +124,20 @@ BDGD_LAYERS_TO_FILTER.sort()
 def main(
   study_name: str,
   poi: tuple[float, float],
-  # bdgd_of_interest: str,
-  bdgd_id: str,
-  bdgd_name: str,
+  bdgd: RegionOfInterest,
   substation_cod_id: str
   ) -> None:
-  with BDGDDownloader(bdgd_id, bdgd_name, BDGD_FOLDER_PATH, True) as gdb_path:
-    if not layers_exists(gdb_path, BDGD_LAYERS):
-      raise ValueError('One or more required layers are missing in the BDGD GDB.')
+  with TemporaryDirectory('gridflow-bdgd-') as tempdir:
+    with BDGDDownloader(bdgd['bdgd_id'], bdgd['bdgd_name'], tempdir, True) as gdb_path:
+      if not layers_exists(gdb_path, BDGD_LAYERS):
+        raise ValueError('One or more required layers are missing in the BDGD GDB.')
 
-    substation_gdfs = layer_mapper(
-      gdb_path,
-      BDGD_LAYERS,
-      substation_cod_id,
-      BDGD_LAYERS_TO_FILTER
-    )
+      substation_gdfs = layer_mapper(
+        gdb_path,
+        BDGD_LAYERS,
+        substation_cod_id,
+        BDGD_LAYERS_TO_FILTER
+      )
 
   study_folder_path = create_study_folder(STUDIES_FOLDER_PATH, study_name)
 
@@ -155,12 +153,12 @@ def main(
   create_substation_gpkg(
     study_folder_path,
     substation_cod_id,
-    bdgd_name,
+    bdgd['bdgd_name'],
     substation_gdfs
   ) if not substation_gpkg_exists(
     study_folder_path,
     substation_cod_id,
-    bdgd_name
+    bdgd['bdgd_name']
   ) else None
 
 if __name__ == '__main__':
@@ -170,13 +168,10 @@ if __name__ == '__main__':
   study_name = to_camel(client_name)
   region_of_interest: RegionOfInterest = requests.get(f'{GRIDFLOW_BDGD_API_URL}/region?poi={poi[0]},{poi[1]}&geometry=f').json()
   substation_of_interest = requests.get(f'{GRIDFLOW_BDGD_API_URL}/substation?poi={poi[0]},{poi[1]}&geometry=f').json()
-  # bdgd_of_interest = find_gdb_by_name(BDGD_FOLDER_PATH, region_of_interest['bdgd_name'])
 
   main(
     study_name,
     poi,
-    # bdgd_of_interest,
-    region_of_interest['bdgd_id'],
-    region_of_interest['bdgd_name'],
+    region_of_interest,
     substation_of_interest['cod_id']
   )
