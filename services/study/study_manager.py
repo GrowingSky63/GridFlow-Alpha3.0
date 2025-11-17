@@ -89,8 +89,10 @@ def substation_gpkg_exists(study_folder_path: str, substation_cod_id: str, bdgd_
 
 def create_study_folder(studies_folder_path: str, study_name: str) -> str:
   study_folder_path = os.path.join(studies_folder_path, study_name)
-  print(study_folder_path)
+  print(f"Tentando criar: {study_folder_path}")
+  print(f"Diretório pai existe? {os.path.isdir(studies_folder_path)}")
   os.makedirs(study_folder_path, exist_ok=True)
+  print(f"Diretório criado? {os.path.isdir(study_folder_path)}")
   return study_folder_path
 
 def create_poi_gpkg(study_folder_path: str, study_name: str, poi_gdf: gpd.GeoDataFrame) -> str:
