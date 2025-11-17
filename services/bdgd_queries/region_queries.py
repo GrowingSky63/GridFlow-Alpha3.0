@@ -1,4 +1,5 @@
 from typing import Any, Sequence
+from pandas import Series
 from sqlalchemy import Engine, Table
 from sqlalchemy.engine import Row, RowMapping
 from sqlalchemy.sql import select
@@ -17,11 +18,16 @@ class RegionQueryMixin:
     region_table: Table
 
     # Existência
-    def region_exists(self, dist: str) -> bool:
+    def region_is_updated(self, region_row: Series) -> bool:
         with self.engine.begin() as conn:
             stmt = (
                 select(self.region_table.c.dist)
-                .where(self.region_table.c.dist == dist)
+                .where(
+                    self.region_table.c.dist == region_row['dist'] and
+                    self.region_table.c.bdgd_date == region_row['bdgd_date'] and
+                    self.region_table.c.bdgd_name == region_row['bdgd_name'] and
+                    self.region_table.c.bdgd_id == region_row['bdgd_id']
+                    )
                 .limit(1)
             )
             return conn.execute(stmt).first() is not None

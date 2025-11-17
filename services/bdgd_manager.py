@@ -73,8 +73,10 @@ class BDGDManager:
 
     # Download dos bdgds nos dados abertos da ANEEL
     def download_and_save_bdgd_search_layers(self, bdgd_row: pd.Series):
-        if self.interface.region_exists(bdgd_row['dist']):
-            self.interface.update_bdgd_search_layers_on_db(bdgd_row['dist'])
+        if self.interface.region_is_updated(bdgd_row):
+            if self.verbose:
+                print(f"BDGD search layers for {bdgd_row['title']} ({bdgd_row['bdgd_id']}) already exist in the database. Updating.")
+            self.interface.remove_bdgd_search_layers_from_db(bdgd_row['dist'])
         
         bdgd_search_gdfs = self.get_all_search_layers_to_gdf(bdgd_row)
         if not bdgd_search_gdfs:
@@ -83,7 +85,6 @@ class BDGDManager:
         self.interface.save_bdgd_search_layers_to_db(bdgd_search_gdfs)
 
     def download_and_save_all_bdgd_search_layers(self, year: int):
-        print(self.verbose)
         if self.verbose:
             print(f"Checking for BDGD search layers updates for year {year}")
         filtered_by_year = self.bdgd_list_df.loc[self.bdgd_list_df['bdgd_date'].dt.year == year]

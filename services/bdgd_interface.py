@@ -86,7 +86,7 @@ class BDGDDBInterface(
     Interface pública. Métodos region_* e substation_* preservados via Mixins.
     """
 
-    def update_bdgd_search_layers_on_db(self, dist: str):
+    def remove_bdgd_search_layers_from_db(self, dist: str):
         """
         Atualiza (remove) as camadas de busca existentes para uma determinada distribuidora.
         Remove region, substation e trhv associados ao dist especificado.
