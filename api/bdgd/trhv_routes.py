@@ -1,9 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
-from services.bdgd_manager import BDGDManager
+from . import *
 
 router = APIRouter()
-
-bdgd_manager = BDGDManager()
 
 @router.get("/trhv", tags=["BDGD"])
 def get_region(
