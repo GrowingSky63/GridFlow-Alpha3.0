@@ -42,7 +42,10 @@ class BDGDDownloader:
                         unit='B',
                         unit_scale=True,
                         desc=f"Baixando {self.bdgd_name}",
-                        leave=False
+                        leave=False,
+                        dynamic_ncols=False,
+                        ncols=80,
+                        bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]'
                     )
                 for chunk in iterator:
                     if chunk:
