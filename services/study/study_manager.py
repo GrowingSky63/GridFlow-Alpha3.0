@@ -89,6 +89,7 @@ def substation_gpkg_exists(study_folder_path: str, substation_cod_id: str, bdgd_
 
 def create_study_folder(studies_folder_path: str, study_name: str) -> str:
   study_folder_path = os.path.join(studies_folder_path, study_name)
+  print(study_folder_path)
   os.makedirs(study_folder_path, exist_ok=True)
   return study_folder_path
 
