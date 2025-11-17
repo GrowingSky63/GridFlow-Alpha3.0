@@ -64,6 +64,7 @@ class BDGDManager:
         df = df[df['tags'].apply(lambda tags: required_tags.issubset(tags))]
         df['tags'] = df['tags'].apply(lambda tags: tags - required_tags)
         df['bdgd_name'], df['dist'], df['bdgd_date'] = zip(*df['title'].apply(self.parse_title))
+        df['bdgd_id'] = df['id']
         df = df[['bdgd_id', 'title', 'bdgd_name', 'dist', 'bdgd_date']]
         df = df.sort_values(by='bdgd_date', ascending=False).reset_index(drop=True)
         if self.verbose:
