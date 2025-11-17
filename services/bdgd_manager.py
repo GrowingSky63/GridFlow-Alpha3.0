@@ -83,6 +83,7 @@ class BDGDManager:
         self.interface.save_bdgd_search_layers_to_db(bdgd_search_gdfs)
 
     def download_and_save_all_bdgd_search_layers(self, year: int):
+        print(self.verbose)
         if self.verbose:
             print(f"Checking for BDGD search layers updates for year {year}")
         filtered_by_year = self.bdgd_list_df.loc[self.bdgd_list_df['bdgd_date'].dt.year == year]

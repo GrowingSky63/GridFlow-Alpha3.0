@@ -1,9 +1,17 @@
+from typing import Literal, TypedDict
 import geopandas as gpd
 from numpy import extract
 from pyogrio import list_layers
 import os, requests, dotenv
-from services.bdgd_downloader import BDGDDownloader
 from utils import to_camel
+from services.bdgd_downloader import BDGDDownloader
+
+class RegionOfInterest(TypedDict):
+    bdgd_id: str
+    cod_id: str
+    dist: str
+    bdgd_name: str
+    distance: float
 
 dotenv.load_dotenv()
 CRS = 'EPSG:4674'
@@ -160,7 +168,7 @@ if __name__ == '__main__':
   poi = (-24.452885, -53.436958)
 
   study_name = to_camel(client_name)
-  region_of_interest = requests.get(f'{GRIDFLOW_BDGD_API_URL}/region?poi={poi[0]},{poi[1]}&geometry=f').json()
+  region_of_interest: RegionOfInterest = requests.get(f'{GRIDFLOW_BDGD_API_URL}/region?poi={poi[0]},{poi[1]}&geometry=f').json()
   substation_of_interest = requests.get(f'{GRIDFLOW_BDGD_API_URL}/substation?poi={poi[0]},{poi[1]}&geometry=f').json()
   # bdgd_of_interest = find_gdb_by_name(BDGD_FOLDER_PATH, region_of_interest['bdgd_name'])
 
@@ -170,5 +178,5 @@ if __name__ == '__main__':
     # bdgd_of_interest,
     region_of_interest['bdgd_id'],
     region_of_interest['bdgd_name'],
-    substation_of_interest['cod_id'],
+    substation_of_interest['cod_id']
   )
