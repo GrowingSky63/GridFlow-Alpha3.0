@@ -1,11 +1,16 @@
-from os import path, remove
+from os import path, remove, isatty
 from requests import get
 from zipfile import ZipFile
 import shutil
 from tqdm import tqdm
+import time
+
+IS_INTERACTIVE = isatty(0) or isatty(1) or isatty(2)
+VERBOSE = True
+CHUNK_SIZE = 8192
 
 class BDGDDownloader:
-    def __init__(self, bdgd_id: str, bdgd_name: str, output_folder: str, extract: bool = False, verbose: bool = True):
+    def __init__(self, bdgd_id: str, bdgd_name: str, output_folder: str, extract: bool = False, verbose: bool = VERBOSE):
         self.bdgd_id = bdgd_id
         self.bdgd_name = bdgd_name
         self.output_folder = output_folder
@@ -30,28 +35,34 @@ class BDGDDownloader:
             response.raise_for_status()
             zip_path = path.join(self.output_folder, f"{self.bdgd_name}.zip")
             
-            # Obtém o tamanho total do arquivo do cabeçalho Content-Length
             total_size = int(response.headers.get('content-length', 0))
-            chunk_size = 8192
+
             with open(zip_path, "wb") as f:
-                iterator = response.iter_content(chunk_size=chunk_size)
-                if self.verbose:
-                    iterator = tqdm(
+                iterator = response.iter_content(chunk_size=CHUNK_SIZE)
+                if self.verbose and total_size > 0:
+                    with tqdm(
                         iterator,
                         total=total_size,
                         unit='B',
                         unit_scale=True,
-                        desc=f"Baixando {self.bdgd_name}",
+                        desc=f"Downloading {self.bdgd_name}",
                         leave=False,
-                        dynamic_ncols=False,
-                        ncols=80,
-                        bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]'
-                    )
-                for chunk in iterator:
-                    if chunk:
-                        f.write(chunk)
-                        if self.verbose:
-                            iterator.update(chunk_size) # type: ignore
+                        disable=not IS_INTERACTIVE
+                    ) as pbar:
+                        for chunk in iterator:
+                            if chunk:
+                                f.write(chunk)
+                                pbar.update(len(chunk))
+                elif self.verbose and total_size > 0 and not IS_INTERACTIVE:
+                    print(f"Downloading {self.bdgd_name}")
+                    for i, chunk in enumerate(iterator, 1):
+                        if chunk:
+                            print(f'{total_size/i*CHUNK_SIZE:.2f}% downloaded', end='\r')
+                            f.write(chunk)
+                else:
+                    for chunk in iterator:
+                        if chunk:
+                            f.write(chunk)
             
             return zip_path
     
@@ -80,10 +91,11 @@ class BDGDDownloader:
                 remove(self.bdgd_path)
 
 class BDGDListDownloader:
-    def __init__(self, output_folder: str, verbose: bool = True):
+    def __init__(self, output_folder: str, verbose: bool = VERBOSE):
         self.output_folder = output_folder
-        self.verbose = verbose
         self.bdgd_list_path = None
+        self.verbose = verbose
+
 
     def __enter__(self) -> str:
         self.bdgd_list_path = self.download()
@@ -93,24 +105,17 @@ class BDGDListDownloader:
         self._cleanup()
 
     def download(self) -> str:
-        
-        with get("https://hub.arcgis.com/api/feed/all/csv?target=dadosabertos-aneel.opendata.arcgis.com", stream=True) as response:
+        if self.verbose:
+            print("Downloading BDGD list", end=' ')
+            start_time = time.time()
+        with get("https://hub.arcgis.com/api/feed/all/csv?target=dadosabertos-aneel.opendata.arcgis.com") as response:
             response.raise_for_status()
+            if self.verbose:
+                end_time = time.time()
+                print(f"({end_time - start_time:.2f} s)") # type: ignore
             bdgd_list_path = path.join(self.output_folder, "bdgd_list.csv")
-            
-            # Obtém o tamanho total do arquivo do cabeçalho Content-Length
-            total_size = int(response.headers.get('content-length', 0))
-            
             with open(bdgd_list_path, "wb") as f:
-                if self.verbose and total_size > 0:
-                    # Cria barra de progresso com tqdm
-                    with tqdm(total=total_size, unit='B', unit_scale=True, desc=f"Downloading bdgd_list") as pbar:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            if chunk:
-                                f.write(chunk)
-                                pbar.update(len(chunk))
-                else:
-                    f.write(response.content)
+                f.write(response.content)
 
             return bdgd_list_path
 

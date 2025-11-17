@@ -54,6 +54,8 @@ class BDGDManager:
         """
         Método para normalização do df responsável por guardar o índice de arquivos disponíveis nos dados abertos da ANEEL
         """
+        if self.verbose:
+            print(f'Normalizing BDGD list with {len(raw_df)} entries')
         document_type = 'File Geodatabase'
         required_tags = {'BDGD', 'SIG-R', 'Distribuicao'}
         df = raw_df
@@ -64,6 +66,8 @@ class BDGDManager:
         df['bdgd_name'], df['dist'], df['bdgd_date'] = zip(*df['title'].apply(self.parse_title))
         df = df[['id', 'title', 'bdgd_name', 'dist', 'bdgd_date']]
         df = df.sort_values(by='bdgd_date', ascending=False).reset_index(drop=True)
+        if self.verbose:
+            print(df)
         return df
 
     # Download dos bdgds nos dados abertos da ANEEL
@@ -78,9 +82,12 @@ class BDGDManager:
         self.interface.save_bdgd_search_layers_to_db(bdgd_search_gdfs)
 
     def download_and_save_all_bdgd_search_layers(self, year: int):
+        if self.verbose:
+            print(f"Checking for BDGD search layers updates for year {year}")
         filtered_by_year = self.bdgd_list_df.loc[self.bdgd_list_df['bdgd_date'].dt.year == year]
         iterator = filtered_by_year.iterrows()
         if self.verbose:
+            print(filtered_by_year)
             iterator = tqdm(
                 iterator,
                 total=len(filtered_by_year),
