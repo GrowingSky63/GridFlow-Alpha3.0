@@ -24,14 +24,14 @@ def new_study(
 
   try:
     lat_str, lon_str = str(poi).split(',')
-    lon = float(lon_str.strip())
     lat = float(lat_str.strip())
+    lon = float(lon_str.strip())
   except Exception as e:
     raise HTTPException(
       400,
       f"{poi} não é um par de coordenadas válido. Use 'latitude,longitude' (ex: '-25.55,-49.72'). Detalhe: {e}"
     )
-  poi_coord = (lat, lon)
+  poi_coord = (lon, lat)
 
   study_name = to_camel(study_name)
   region_of_interest: RegionOfInterest = bdgd_manager.interface.get_region_by_poi(poi_coord)

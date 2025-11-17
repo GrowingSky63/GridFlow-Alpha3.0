@@ -86,8 +86,8 @@ def get_region(
         case "poi":
             try:
                 lat_str, lon_str = str(param_value).split(',')
-                lon = float(lon_str.strip())
                 lat = float(lat_str.strip())
+                lon = float(lon_str.strip())
             except Exception as e:
                 raise HTTPException(
                     400,
