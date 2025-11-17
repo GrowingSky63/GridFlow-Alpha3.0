@@ -92,7 +92,6 @@ def create_study_folder(studies_folder_path: str, study_name: str) -> str:
   print(f"Tentando criar: {study_folder_path}")
   print(f"Diretório pai existe? {os.path.isdir(studies_folder_path)}")
   os.makedirs(study_folder_path, exist_ok=True)
-  print(os.listdir(os.path.join(*study_folder_path.split(os.sep)[0:-1])))
   print(f"Diretório criado? {os.path.isdir(study_folder_path)}")
   return study_folder_path
 
