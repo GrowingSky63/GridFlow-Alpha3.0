@@ -20,7 +20,7 @@ class RegionQueryMixin:
     def region_exists(self, dist: str) -> bool:
         with self.engine.begin() as conn:
             stmt = (
-                select(self.region_table.c.id)
+                select(self.region_table.c.dist)
                 .where(self.region_table.c.dist == dist)
                 .limit(1)
             )

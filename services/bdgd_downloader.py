@@ -6,6 +6,7 @@ from tqdm import tqdm
 import time
 
 IS_INTERACTIVE = isatty(0) or isatty(1) or isatty(2)
+print(f'Interactive: {IS_INTERACTIVE}')
 VERBOSE = True
 CHUNK_SIZE = 8192
 
