@@ -64,7 +64,7 @@ class BDGDManager:
         df = df[df['tags'].apply(lambda tags: required_tags.issubset(tags))]
         df['tags'] = df['tags'].apply(lambda tags: tags - required_tags)
         df['bdgd_name'], df['dist'], df['bdgd_date'] = zip(*df['title'].apply(self.parse_title))
-        df = df[['id', 'title', 'bdgd_name', 'dist', 'bdgd_date']]
+        df = df[['bdgd_id', 'title', 'bdgd_name', 'dist', 'bdgd_date']]
         df = df.sort_values(by='bdgd_date', ascending=False).reset_index(drop=True)
         if self.verbose:
             print(df)
@@ -142,7 +142,7 @@ class BDGDManager:
         Método para download, normalização e instanciação no DB das camadas necessárias para pesquisa dos BDGDs. Este método fará o download de todos os BDGDs e coletará as camadas de pesquisa de cada um (ARAT, SUB e UNTRAT).
         """
         with TemporaryDirectory(prefix='gridflow-bdgd-') as temp_folder:
-            with BDGDDownloader(bdgd_row['id'], bdgd_row['title'], temp_folder, True, self.verbose) as bdgd_file:
+            with BDGDDownloader(bdgd_row['bdgd_id'], bdgd_row['title'], temp_folder, True, self.verbose) as bdgd_file:
                 region_gdf = self.normalize_gdf_region(gpd.read_file(bdgd_file, layer='ARAT'), bdgd_row)
                 
                 substation_gdf = self.normalize_gdf_substation(gpd.read_file(bdgd_file, layer='SUB'))
@@ -167,7 +167,7 @@ class BDGDManager:
         region_gdf['bdgd_name'] = bdgd_row['bdgd_name']
         region_gdf['bdgd_date'] = bdgd_row['bdgd_date']
 
-        region_gdf['bdgd_id'] = bdgd_row['id']
+        region_gdf['bdgd_id'] = bdgd_row['bdgd_id']
 
         return region_gdf
 
