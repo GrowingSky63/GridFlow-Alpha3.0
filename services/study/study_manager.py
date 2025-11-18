@@ -1,6 +1,7 @@
 from tempfile import TemporaryDirectory
 from typing import TypedDict
 import geopandas as gpd
+import pandas as pd
 from pyogrio import list_layers
 import os, requests, dotenv
 from services.utils import to_camel
@@ -26,10 +27,11 @@ dotenv.load_dotenv()
 CRS = 'EPSG:4674'
 
 def open_gdb_layer(gdb_path: str, layer_name: str) -> gpd.GeoDataFrame:
-  df = gpd.read_file(gdb_path, layer=layer_name)
-  if isinstance(df, gpd.GeoDataFrame):
-    return df.to_crs(CRS)
-  return df
+  gdf = gpd.read_file(gdb_path, layer=layer_name)
+  if isinstance(gdf, gpd.GeoDataFrame):
+    return gdf.to_crs(CRS)
+  gdf = gpd.GeoDataFrame(data=gdf)
+  return gdf
 
 def get_all_gdb_in_folder(folder_path: str) -> list[str]:
   return [path for path in os.listdir(folder_path) if path.endswith('.gdb')]
@@ -51,20 +53,28 @@ def layers_exists(gdb_path: str, layers: list[str]) -> bool:
 
 def filter_bdgd_layer_by_substation_cod_id(bdgd_layer: gpd.GeoDataFrame, substation_cod_id: str) -> gpd.GeoDataFrame:
   if 'SUB' not in bdgd_layer.columns:
-    return bdgd_layer.loc[bdgd_layer['COD_ID'] == substation_cod_id]
-  return bdgd_layer.loc[bdgd_layer['SUB'] == substation_cod_id]
+    data = bdgd_layer.loc[bdgd_layer['COD_ID'] == substation_cod_id]
+  else:
+    data = bdgd_layer.loc[bdgd_layer['SUB'] == substation_cod_id]
+  return gpd.GeoDataFrame(data=data)
 
-def layer_mapper(gdb_path: str, layers: list[str], filter_by_substation_cod_id: str | None = None, layers_to_filter: list[str] | None = None) -> dict[str, gpd.GeoDataFrame]:
-  if filter_by_substation_cod_id is None and layers_to_filter is not None:
-    raise ValueError('layers_to_filter can only be provided if filter_by_substation_cod_id is also provided.')
-  if filter_by_substation_cod_id is not None and layers_to_filter is None:
+def layer_mapper(gdb_path: str, layers: list[str], substation_cod_id_filter: str | None = None, layers_to_filter: list[str] | None = None) -> dict[str, gpd.GeoDataFrame]:
+  """
+  This method maps the layers from a GDB file, to a dictionary, where keys are the layer names and values are the GeoDataFrames.
+  """
+  if substation_cod_id_filter is None and layers_to_filter is not None:
+    raise ValueError('layers_to_filter can only be provided if substation_cod_id_filter is also provided.')
+  if substation_cod_id_filter is not None and layers_to_filter is None:
     layers_to_filter = layers
   layer_dict: dict[str, gpd.GeoDataFrame] = {}
   for layer_name in layers:
-    if filter_by_substation_cod_id is not None and layer_name in layers_to_filter: # type: ignore
-      layer_dict[layer_name] = filter_bdgd_layer_by_substation_cod_id(open_gdb_layer(gdb_path, layer_name), filter_by_substation_cod_id)
-    else:
-      layer_dict[layer_name] = open_gdb_layer(gdb_path, layer_name)
+    gdf = open_gdb_layer(gdb_path, layer_name)
+    print(f'Layer {layer_name} is a {type(gdf)} pre-filtering.')
+    if substation_cod_id_filter is not None and layer_name in layers_to_filter: # type: ignore
+      gdf = filter_bdgd_layer_by_substation_cod_id(gdf, substation_cod_id_filter)
+      print(f'Layer {layer_name} after filter, is a {type(gdf)}.')
+    layer_dict[layer_name] = gdf
+    print(f'Layer {layer_name} after mapping is a {type(layer_dict[layer_name])}.')
   return layer_dict
 
 def create_poi_gdf(poi: tuple[float, float], desc: str) -> gpd.GeoDataFrame:
@@ -83,9 +93,9 @@ def poi_gpkg_exists(study_folder_path: str, study_name: str) -> bool:
   poi_gpkg_path = os.path.join(study_folder_path, f'POI_{study_name}.gpkg')
   return os.path.isfile(poi_gpkg_path)
 
-def substation_gpkg_exists(study_folder_path: str, substation_cod_id: str, bdgd_name: str) -> bool:
-  substation_gpkg_path = os.path.join(study_folder_path, f'{substation_cod_id}_{bdgd_name}.gpkg')
-  return os.path.isfile(substation_gpkg_path)
+def filtered_gpkg_exists(study_folder_path: str, substation_cod_id: str, bdgd_name: str) -> bool:
+  filtered_gpkg_path = os.path.join(study_folder_path, f'{substation_cod_id}_{bdgd_name}.gpkg')
+  return os.path.isfile(filtered_gpkg_path)
 
 def create_study_folder(studies_folder_path: str, study_name: str) -> str:
   study_folder_path = os.path.join(studies_folder_path, study_name)
@@ -100,16 +110,16 @@ def create_poi_gpkg(study_folder_path: str, study_name: str, poi_gdf: gpd.GeoDat
   poi_gdf.to_file(poi_gpkg_path, driver='GPKG', layer='Pontos de Interesse')
   return poi_gpkg_path
 
-def create_substation_gpkg(study_folder_path: str, substation_cod_id: str, bdgd_name: str, substation_gdfs: dict[str, gpd.GeoDataFrame]) -> str:
-  substation_gpkg_path = os.path.join(study_folder_path, f'{substation_cod_id}_{bdgd_name}.gpkg')
-  for layer_name, gdf in substation_gdfs.items():
+def create_filtered_gpkg_by_substation_cod_id(study_folder_path: str, substation_cod_id: str, bdgd_name: str, filtered_gdfs_by_substation_cod_id: dict[str, gpd.GeoDataFrame]) -> str:
+  filtered_gpkg_path = os.path.join(study_folder_path, f'{substation_cod_id}_{bdgd_name}.gpkg')
+  for layer_name, gdf in filtered_gdfs_by_substation_cod_id.items():
     gdf.to_file(
-      substation_gpkg_path,
+      filtered_gpkg_path,
       driver='GPKG',
       layer=layer_name.strip('_tab').lower(),
       mode='a'
     )
-  return substation_gpkg_path
+  return filtered_gpkg_path
 
 
 STUDIES_FOLDER_PATH = os.path.normpath(os.environ.get('STUDIES_FOLDER_PATH', ''))
@@ -148,7 +158,7 @@ def main(
       if not layers_exists(gdb_path, BDGD_LAYERS):
         raise ValueError('One or more required layers are missing in the BDGD GDB.')
 
-      substation_gdfs = layer_mapper(
+      filtered_gdfs_by_substation_cod_id = layer_mapper(
         gdb_path,
         BDGD_LAYERS,
         substation_cod_id,
@@ -166,12 +176,12 @@ def main(
     study_name
   ) else None
 
-  create_substation_gpkg(
+  create_filtered_gpkg_by_substation_cod_id(
     study_folder_path,
     substation_cod_id,
     bdgd['bdgd_name'],
-    substation_gdfs
-  ) if not substation_gpkg_exists(
+    filtered_gdfs_by_substation_cod_id
+  ) if not filtered_gpkg_exists(
     study_folder_path,
     substation_cod_id,
     bdgd['bdgd_name']

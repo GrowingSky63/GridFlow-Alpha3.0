@@ -11,9 +11,6 @@ def new_study(
     study_name: str = Query(..., description="Nome do estudo a ser criado."),
     poi: str = Query(..., description="Ponto de interesse no formato 'latitude,longitude' (ex: '-25.55,-49.72').")
 ):
-  # client_name = 'Paulo Gallo'
-  # poi = (-24.452885, -53.436958)
-
   study_name = to_camel(study_name)
 
   if study_folder_exists(STUDIES_FOLDER_PATH, study_name):
