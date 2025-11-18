@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 import asyncio
 from typing import Dict
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 from services.utils import to_camel
 from services.study.study_manager import RegionOfInterest, SubstationOfInterest, main as create_new_study, study_folder_exists
 from . import *
@@ -11,29 +12,51 @@ router = APIRouter()
 # Fila de estudos em processamento
 study_queue: Dict[str, dict] = {}
 
+# Executor para rodar tarefas bloqueantes
+executor = ThreadPoolExecutor(max_workers=1)  # Apenas 1 worker para processar um estudo por vez
+
+# Lock para garantir processamento sequencial
+processing_lock = asyncio.Lock()
+
 async def process_study(study_name: str, poi_coord: tuple):
     """Processa a criação do estudo em background"""
-    try:
-        study_queue[study_name]["status"] = "processing"
-        study_queue[study_name]["started_at"] = datetime.now().isoformat()
-        
-        region_of_interest: RegionOfInterest = bdgd_manager.interface.get_region_by_poi(poi_coord)
-        substation_of_interest: SubstationOfInterest = bdgd_manager.interface.get_substation_by_poi(poi_coord)
-        
-        create_new_study(
-            study_name,
-            poi_coord,
-            region_of_interest,
-            substation_of_interest['cod_id']
-        )
-        
-        study_queue[study_name]["status"] = "completed"
-        study_queue[study_name]["completed_at"] = datetime.now().isoformat()
-        
-    except Exception as e:
-        study_queue[study_name]["status"] = "failed"
-        study_queue[study_name]["error"] = str(e)
-        study_queue[study_name]["failed_at"] = datetime.now().isoformat()
+    async with processing_lock:  # Garante que apenas um estudo rode por vez
+        try:
+            study_queue[study_name]["status"] = "processing"
+            study_queue[study_name]["started_at"] = datetime.now().isoformat()
+            
+            # Obtém dados de forma assíncrona se possível, ou roda no executor
+            loop = asyncio.get_event_loop()
+            
+            region_of_interest: RegionOfInterest = await loop.run_in_executor(
+                executor,
+                bdgd_manager.interface.get_region_by_poi,
+                poi_coord
+            )
+            
+            substation_of_interest: SubstationOfInterest = await loop.run_in_executor(
+                executor,
+                bdgd_manager.interface.get_substation_by_poi,
+                poi_coord
+            )
+            
+            # Executa a criação do estudo em thread separada para não bloquear
+            await loop.run_in_executor(
+                executor,
+                create_new_study,
+                study_name,
+                poi_coord,
+                region_of_interest,
+                substation_of_interest['cod_id']
+            )
+            
+            study_queue[study_name]["status"] = "completed"
+            study_queue[study_name]["completed_at"] = datetime.now().isoformat()
+            
+        except Exception as e:
+            study_queue[study_name]["status"] = "failed"
+            study_queue[study_name]["error"] = str(e)
+            study_queue[study_name]["failed_at"] = datetime.now().isoformat()
 
 @router.get("/new", tags=["BDGD"])
 async def new_study(
