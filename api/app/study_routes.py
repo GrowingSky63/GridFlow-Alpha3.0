@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 import asyncio
 from typing import Dict
 from datetime import datetime
-
 from services.utils import to_camel
 from services.study.study_manager import RegionOfInterest, SubstationOfInterest, main as create_new_study, study_folder_exists
 from . import *

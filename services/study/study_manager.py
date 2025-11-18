@@ -1,3 +1,4 @@
+import subprocess
 from tempfile import TemporaryDirectory
 from typing import TypedDict
 import geopandas as gpd
@@ -164,28 +165,26 @@ def main(
         substation_cod_id,
         BDGD_LAYERS_TO_FILTER
       )
-
-  study_folder_path = create_study_folder(STUDIES_FOLDER_PATH, study_name)
-
-  create_poi_gpkg(
-    study_folder_path,
-    study_name,
-    create_poi_gdf(poi, 'Ponto de Conexão')
-  ) if not poi_gpkg_exists(
-    study_folder_path,
-    study_name
-  ) else None
-
-  create_filtered_gpkg_by_substation_cod_id(
-    study_folder_path,
-    substation_cod_id,
-    bdgd['bdgd_name'],
-    filtered_gdfs_by_substation_cod_id
-  ) if not filtered_gpkg_exists(
-    study_folder_path,
-    substation_cod_id,
-    bdgd['bdgd_name']
-  ) else None
+  with subprocess.Popen('sshfs gridflow@172.25.0.233:/home/gridflow/data ~/data'):
+    study_folder_path = create_study_folder(STUDIES_FOLDER_PATH, study_name)
+    create_poi_gpkg(
+      study_folder_path,
+      study_name,
+      create_poi_gdf(poi, 'Ponto de Conexão')
+    ) if not poi_gpkg_exists(
+      study_folder_path,
+      study_name
+    ) else None
+    create_filtered_gpkg_by_substation_cod_id(
+      study_folder_path,
+      substation_cod_id,
+      bdgd['bdgd_name'],
+      filtered_gdfs_by_substation_cod_id
+    ) if not filtered_gpkg_exists(
+      study_folder_path,
+      substation_cod_id,
+      bdgd['bdgd_name']
+    ) else None
 
 if __name__ == '__main__':
   client_name = 'Paulo Gallo'
