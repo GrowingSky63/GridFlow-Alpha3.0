@@ -1,11 +1,8 @@
-import subprocess
 from tempfile import TemporaryDirectory
 from typing import TypedDict
 import geopandas as gpd
-import pandas as pd
 from pyogrio import list_layers
-import os, requests, dotenv
-from services.utils import to_camel
+import os, dotenv
 from services.bdgd.bdgd_downloader import BDGDDownloader
 
 class RegionOfInterest(TypedDict):
@@ -165,38 +162,23 @@ def main(
         substation_cod_id,
         BDGD_LAYERS_TO_FILTER
       )
-  with subprocess.Popen('sshfs gridflow@172.25.0.233:/home/gridflow/data ~/data'):
-    study_folder_path = create_study_folder(STUDIES_FOLDER_PATH, study_name)
-    create_poi_gpkg(
-      study_folder_path,
-      study_name,
-      create_poi_gdf(poi, 'Ponto de Conexão')
-    ) if not poi_gpkg_exists(
-      study_folder_path,
-      study_name
-    ) else None
-    create_filtered_gpkg_by_substation_cod_id(
-      study_folder_path,
-      substation_cod_id,
-      bdgd['bdgd_name'],
-      filtered_gdfs_by_substation_cod_id
-    ) if not filtered_gpkg_exists(
-      study_folder_path,
-      substation_cod_id,
-      bdgd['bdgd_name']
-    ) else None
 
-if __name__ == '__main__':
-  client_name = 'Paulo Gallo'
-  poi = (-24.452885, -53.436958)
-
-  study_name = to_camel(client_name)
-  region_of_interest: RegionOfInterest = requests.get(f'{GRIDFLOW_BDGD_API_URL}/region?poi={poi[0]},{poi[1]}&geometry=f').json()
-  substation_of_interest = requests.get(f'{GRIDFLOW_BDGD_API_URL}/substation?poi={poi[0]},{poi[1]}&geometry=f').json()
-
-  main(
+  study_folder_path = create_study_folder(STUDIES_FOLDER_PATH, study_name)
+  create_poi_gpkg(
+    study_folder_path,
     study_name,
-    poi,
-    region_of_interest,
-    substation_of_interest['cod_id']
-  )
+    create_poi_gdf(poi, 'Ponto de Conexão')
+  ) if not poi_gpkg_exists(
+    study_folder_path,
+    study_name
+  ) else None
+  create_filtered_gpkg_by_substation_cod_id(
+    study_folder_path,
+    substation_cod_id,
+    bdgd['bdgd_name'],
+    filtered_gdfs_by_substation_cod_id
+  ) if not filtered_gpkg_exists(
+    study_folder_path,
+    substation_cod_id,
+    bdgd['bdgd_name']
+  ) else None
